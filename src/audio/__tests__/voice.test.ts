@@ -82,7 +82,24 @@ describe('resolveVoiceUrl', () => {
 });
 
 describe('音声マニフェスト既定値', () => {
-  it('実音声ファイル未同梱の初期状態でもエラーなく無音で素通りする', () => {
+  it('空のマニフェストではエラーなく無音で素通りする', () => {
+    const created: FakeAudio[] = [];
+    vi.stubGlobal(
+      'Audio',
+      vi.fn(function (url: string) {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      }),
+    );
+
+    const player = createVoicePlayer({ manifest: { phrases: {}, words: {} } });
+    expect(player.playPhrase('lesson-start')).toBe(false);
+    expect(player.playWord('あさ')).toBe(false);
+    expect(created).toHaveLength(0);
+  });
+
+  it('既定マニフェストに登録された固定文と単語は再生対象になる', () => {
     const created: FakeAudio[] = [];
     vi.stubGlobal(
       'Audio',
@@ -94,9 +111,13 @@ describe('音声マニフェスト既定値', () => {
     );
 
     const player = createVoicePlayer({ manifest: DEFAULT_VOICE_MANIFEST });
-    expect(player.playPhrase('lesson-start')).toBe(false);
-    expect(player.playWord('あさ')).toBe(false);
-    expect(created).toHaveLength(0);
+    expect(player.playPhrase('lesson-start')).toBe(true);
+    expect(player.playWord('あさ')).toBe(true);
+    created[0].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      expect.stringContaining('audio/phrases/lesson-start.mp3'),
+      expect.stringContaining('audio/words/asa.mp3'),
+    ]);
   });
 
   it('自己申告のすべての選択肢に固定文キーが割り当てられている', () => {
