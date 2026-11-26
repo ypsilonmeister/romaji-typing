@@ -297,6 +297,58 @@ describe('ShiritoriScreen', () => {
     expect(onFinish).toHaveBeenCalledTimes(1);
   });
 
+  it('アプリが返した後に子どもが返せる言葉が尽きたら終了案内を表示し、終了できる', async () => {
+    const onFinish = vi.fn();
+
+    render(
+      <ShiritoriScreen
+        dictionary={['ほし', 'しか', 'かげ', 'げんかん']}
+        random={() => 0}
+        appResponseDelayMs={100}
+        onFinish={onFinish}
+      />,
+    );
+
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).soundOn).toBe(true);
+    });
+    vi.useFakeTimers();
+
+    typeWord('shika');
+    fireEvent.keyDown(window, { key: 'Enter' });
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+
+    expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain('かげ');
+    expect(screen.getByText(/「げ」から はじまる ことばが もう ないよ/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'おわりにする' }));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
+  it('拗音はまとめ打ち（kya）も分け打ち（kixya）も Backspace 1回で空欄になる', () => {
+    render(
+      <ShiritoriScreen
+        dictionary={['ほし', 'しま']}
+        random={() => 0}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    typeWord('kya');
+    expect(screen.getByTestId('shiritori-input').textContent).toContain('きゃ');
+    fireEvent.keyDown(window, { key: 'Backspace' });
+    expect(screen.getByTestId('shiritori-input').textContent).not.toContain('き');
+    expect(screen.getByTestId('shiritori-input').textContent).toContain('ローマじで うってね');
+
+    typeWord('kixya');
+    expect(screen.getByTestId('shiritori-input').textContent).toContain('きゃ');
+    fireEvent.keyDown(window, { key: 'Backspace' });
+    expect(screen.getByTestId('shiritori-input').textContent).not.toContain('き');
+    expect(screen.getByTestId('shiritori-input').textContent).toContain('ローマじで うってね');
+  });
+
   it('IME の composition 中の keydown は無視する', () => {
     render(
       <ShiritoriScreen

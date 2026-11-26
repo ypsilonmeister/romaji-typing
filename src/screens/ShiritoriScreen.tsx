@@ -49,7 +49,7 @@ export interface ShiritoriScreenProps {
   readonly voice?: VoicePlayer;
 }
 
-type TurnPhase = 'child-turn' | 'app-thinking' | 'app-stuck';
+type TurnPhase = 'child-turn' | 'app-thinking' | 'app-stuck' | 'child-stuck';
 
 function isButtonElement(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest('button, [role="button"]') !== null;
@@ -81,7 +81,9 @@ export function ShiritoriScreen({
 
   const [game, setGame] = useState<ShiritoriState>(() => createShiritoriGame(dictionary, random));
   const [converter, setConverter] = useState<ConverterState>(() => createConverter());
-  const [phase, setPhase] = useState<TurnPhase>('child-turn');
+  const [phase, setPhase] = useState<TurnPhase>(() =>
+    game.status === 'child-stuck' ? 'child-stuck' : 'child-turn',
+  );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [shakePhase, setShakePhase] = useState<0 | 1 | 2>(0);
@@ -243,7 +245,7 @@ export function ShiritoriScreen({
       const appResult = advanceAppTurn(result.state, dictionary, random);
       setGame(appResult.state);
       if (appResult.moved) {
-        setPhase('child-turn');
+        setPhase(appResult.state.status === 'child-stuck' ? 'child-stuck' : 'child-turn');
         if (voiceOnRef.current) {
           voice.playWord(appResult.word);
         }
@@ -430,10 +432,12 @@ export function ShiritoriScreen({
       </section>
 
       <section className={`lesson-card shiritori-input-panel${shakeClass}`} aria-label="にゅうりょく">
-        {phase === 'app-stuck' ? (
+        {phase === 'app-stuck' || phase === 'child-stuck' ? (
           <div className="shiritori-stuck" role="status">
             <p className="shiritori-stuck-message">
-              アプリは これいじょう おもいつかなかったよ！ たくさん つながったね。
+              {phase === 'app-stuck'
+                ? 'アプリは これいじょう おもいつかなかったよ！ たくさん つながったね。'
+                : `「${game.expectedKana}」から はじまる ことばが もう ないよ！ たくさん つながったね。`}
             </p>
             <button type="button" className="button button-primary" onClick={finishShiritori}>
               おわりにする

@@ -1,6 +1,14 @@
 // 自由入力用のローマ字→かなコンバータ（しりとりモード・Issue #16）。
 // DOM に依存しない純粋な状態機械。既存の ROMAJI_TABLE（仕様 v0.3 §1）を再利用する。
 // 状態は書き換えず、操作のたびに新しい状態を返す。
+//
+// レッスン照合（matcher.ts / allowsSingleN）との仕様差:
+// - 「ん」の単一 `n` 受理範囲: レッスン照合（§2.3）では母音・や行・な行・んに加えてら行・わ行の前でも `nn` を
+//   必須としているが、自由入力では既存の辞書表記（例: wordPacks.ts の「せんろ」= `senro`）および一般的な
+//   ローマ字入力との互換性のため、曖昧さの生じない子音（母音・y・n 以外、r・w を含む）の前では単一 `n` でも
+//   「ん」として受理する仕様とする（`nn` も同様に受理する）。
+// - 拗音の単位化: `kya` のまとめ打ちと `kixya` / `kilya` の分け打ちのどちらも、ROMAJI_TABLE に定義された
+//   拗音（2文字）であれば1単位として保持し、Backspace 1回で同じ単位が消えるようにそろえる。
 
 import { ROMAJI_TABLE } from './romajiTable';
 
@@ -110,7 +118,8 @@ export function nextConverterKeys(state: ConverterState): string[] {
     keys.add(buffer);
   }
 
-  // 「ん」の解決: buffer が 'n' のとき、母音・y・n 以外でローマ字の開始になり得る子音も受け付ける
+  // 「ん」の解決: 自由入力では既存の辞書表記（senro 等）との互換性のため、レッスン（allowsSingleN）より
+  // 許容範囲を広げ、母音・y・n 以外でローマ字の開始になり得る子音（r・w を含む）の前でも単一 n を受理する。
   if (buffer === 'n') {
     for (const ch of START_KEYS) {
       if (!VOWELS.has(ch) && ch !== 'y' && ch !== 'n') {
@@ -137,6 +146,19 @@ export function pressConverterKey(state: ConverterState, key: string): Converter
   // 1. 最長一致: バッファ＋キーが表に完全一致する場合（より長い接頭辞が表に無いことも確認）
   const exact = ROMAJI_TO_KANA.get(candidate);
   if (exact !== undefined && !PREFIX_NEXT_KEYS.has(candidate)) {
+    // 分け打ち（例: ki + xya → き + ゃ）でも、ROMAJI_TABLE にある拗音（2文字）なら1単位にまとめる
+    const prevKana = state.kana[state.kana.length - 1];
+    const combined = prevKana !== undefined ? prevKana + exact : '';
+    if (
+      combined.length === 2 &&
+      Object.prototype.hasOwnProperty.call(ROMAJI_TABLE, combined)
+    ) {
+      return {
+        state: { kana: [...state.kana.slice(0, -1), combined], buffer: '' },
+        accepted: true,
+        completed: [combined],
+      };
+    }
     return {
       state: { kana: [...state.kana, exact], buffer: '' },
       accepted: true,
@@ -162,7 +184,8 @@ export function pressConverterKey(state: ConverterState, key: string): Converter
     };
   }
 
-  // 4. 「ん」の解決: n の直後が子音（母音・y・n 以外の開始可能文字）なら「ん」を確定して新バッファを開始
+  // 4. 「ん」の解決: 自由入力の仕様として、n の直後が母音・y・n 以外の開始可能文字（r・w を含む）なら
+  // 「ん」を確定して新バッファを開始する（レッスン照合の allowsSingleN より許容範囲を広げる意図的な仕様）。
   if (buffer === 'n' && START_KEYS.has(ch) && !VOWELS.has(ch) && ch !== 'y' && ch !== 'n') {
     return {
       state: { kana: [...state.kana, 'ん'], buffer: ch },

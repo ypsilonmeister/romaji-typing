@@ -10,7 +10,7 @@ export interface ShiritoriEntry {
   readonly speaker: ShiritoriSpeaker;
 }
 
-export type ShiritoriStatus = 'playing' | 'app-stuck';
+export type ShiritoriStatus = 'playing' | 'app-stuck' | 'child-stuck';
 
 export interface ShiritoriState {
   readonly chain: readonly ShiritoriEntry[];
@@ -131,7 +131,28 @@ export function appCandidateWords(
 }
 
 /**
- * アプリの手番として辞書からランダムに1語選ぶ。候補が無ければ undefined。
+ * 指定の語を出したあと、次の手番で返せる未使用・非「ん」終わりの語が辞書に1つ以上あるか。
+ */
+function hasPlayableReply(
+  word: string,
+  usedWords: ReadonlySet<string>,
+  dictionary: readonly string[],
+): boolean {
+  const nextKana = normalizeNextKana(word);
+  if (nextKana.length === 0) return false;
+  return dictionary.some(
+    (other) =>
+      other.length > 0 &&
+      other !== word &&
+      !usedWords.has(other) &&
+      !other.endsWith('ん') &&
+      other[0] === nextKana,
+  );
+}
+
+/**
+ * アプリの手番として辞書からランダムに1語選ぶ。
+ * 子どもが返せる候補が残る語を優先し、返せる語が無い場合のみ残り候補から選ぶ。候補が無ければ undefined。
  */
 export function pickAppWord(
   expectedKana: string,
@@ -140,33 +161,37 @@ export function pickAppWord(
   random: () => number = Math.random,
 ): string | undefined {
   const candidates = appCandidateWords(expectedKana, usedWords, dictionary);
-  return pickRandom(candidates, random);
+  const playable = candidates.filter((word) => hasPlayableReply(word, usedWords, dictionary));
+  return pickRandom(playable.length > 0 ? playable : candidates, random);
 }
 
 /**
  * しりとりゲームを開始する。アプリが最初の言葉を1つ出す。
  * 最初の言葉は「ん」で終わらず、子どもが返せる候補が辞書に1つ以上ある語を優先して選ぶ。
+ * 選んだ語のあとに子どもが返せる候補が無ければ status は 'child-stuck' になる。
  */
 export function createShiritoriGame(
   dictionary: readonly string[] = SHIRITORI_DICTIONARY,
   random: () => number = Math.random,
 ): ShiritoriState {
   const nonNWords = dictionary.filter((word) => word.length > 0 && !word.endsWith('ん'));
-  const playableStarts = nonNWords.filter((word) => {
-    const next = normalizeNextKana(word);
-    return nonNWords.some((other) => other !== word && other[0] === next);
-  });
+  const emptyUsed = new Set<string>();
+  const playableStarts = nonNWords.filter((word) => hasPlayableReply(word, emptyUsed, dictionary));
 
   const firstWord = pickRandom(playableStarts.length > 0 ? playableStarts : nonNWords, random);
   if (!firstWord) {
     throw new Error('しりとりを開始できる単語が辞書にありません');
   }
 
+  const usedWords = new Set([firstWord]);
+  const expectedKana = normalizeNextKana(firstWord);
+  const childCanReply = appCandidateWords(expectedKana, usedWords, dictionary).length > 0;
+
   return {
     chain: [{ word: firstWord, speaker: 'app' }],
-    usedWords: new Set([firstWord]),
-    expectedKana: normalizeNextKana(firstWord),
-    status: 'playing',
+    usedWords,
+    expectedKana,
+    status: childCanReply ? 'playing' : 'child-stuck',
   };
 }
 
@@ -210,7 +235,9 @@ export function submitChildWord(
 }
 
 /**
- * アプリの手番を進める。続けられる言葉があればチェーンに追加し、無ければ app-stuck にする。
+ * アプリの手番を進める。
+ * - 続けられる言葉が無ければ app-stuck にする。
+ * - 言葉を選べた場合でも、その次に子どもが返せる未使用・非「ん」終わり語が辞書に無ければ child-stuck にする。
  */
 export function advanceAppTurn(
   state: ShiritoriState,
@@ -227,14 +254,16 @@ export function advanceAppTurn(
 
   const nextUsed = new Set(state.usedWords);
   nextUsed.add(picked);
+  const nextExpected = normalizeNextKana(picked);
+  const childCanReply = appCandidateWords(nextExpected, nextUsed, dictionary).length > 0;
   return {
     moved: true,
     word: picked,
     state: {
       chain: [...state.chain, { word: picked, speaker: 'app' }],
       usedWords: nextUsed,
-      expectedKana: normalizeNextKana(picked),
-      status: 'playing',
+      expectedKana: nextExpected,
+      status: childCanReply ? 'playing' : 'child-stuck',
     },
   };
 }

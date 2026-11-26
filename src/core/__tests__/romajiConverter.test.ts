@@ -59,13 +59,16 @@ describe('自由入力コンバータ: 基本変換', () => {
     expect(convertedText(typeKeys('didudyadyudyo'))).toBe('ぢづぢゃぢゅぢょ');
   });
 
-  it('拗音と小さいかな（x・l 接頭辞）を表のとおりに変換できる', () => {
+  it('拗音と小さいかな（x・l 接頭辞）を表のとおりに変換でき、表にある拗音は分け打ちでも1単位にまとまる', () => {
     expect(convertedText(typeKeys('kyashachanya'))).toBe('きゃしゃちゃにゃ');
     expect(convertedText(typeKeys('syatyacyajyazyadya'))).toBe('しゃちゃちゃじゃじゃぢゃ');
     expect(convertedText(typeKeys('xyalyuxyo'))).toBe('ゃゅょ');
     expect(convertedText(typeKeys('kixya'))).toBe('きゃ');
     expect(typeKeys('kya').kana).toEqual(['きゃ']);
-    expect(typeKeys('kixya').kana).toEqual(['き', 'ゃ']);
+    expect(typeKeys('kixya').kana).toEqual(['きゃ']);
+    expect(typeKeys('kilya').kana).toEqual(['きゃ']);
+    // 表にない組み合わせ（あ＋ゃ）は1単位にまとめない
+    expect(typeKeys('axya').kana).toEqual(['あ', 'ゃ']);
   });
 });
 
@@ -86,10 +89,11 @@ describe('自由入力コンバータ: 「ん」の解決', () => {
     expect(done.state.buffer).toBe('');
   });
 
-  it('n の直後が r / w などの子音でも「ん」として確定する', () => {
+  it('自由入力では辞書表記（senro）との互換性のため、r / w 前の単一 n も「ん」として受理する（レッスン照合より許容範囲が広い仕様）', () => {
     expect(convertedText(typeKeys('senro'))).toBe('せんろ');
     expect(convertedText(typeKeys('sennro'))).toBe('せんろ');
     expect(convertedText(typeKeys('konwa'))).toBe('こんわ');
+    expect(convertedText(typeKeys('konnwa'))).toBe('こんわ');
   });
 
   it('n の直後が母音なら な行、y なら にゃ行として処理する', () => {
@@ -159,13 +163,22 @@ describe('自由入力コンバータ: Backspace', () => {
     expect(s3).toEqual({ kana: ['か'], buffer: '' });
   });
 
-  it('バッファが空なら変換済みかなの末尾1単位を取り除く（拗音も1単位）', () => {
+  it('バッファが空なら変換済みかなの末尾1単位を取り除く（拗音も分け打ちを含め1単位）', () => {
     const s1 = typeKeys('densha');
     expect(s1).toEqual({ kana: ['で', 'ん', 'しゃ'], buffer: '' });
     const s2 = backspaceConverter(s1);
     expect(s2).toEqual({ kana: ['で', 'ん'], buffer: '' });
     const s3 = backspaceConverter(s2);
     expect(s3).toEqual({ kana: ['で'], buffer: '' });
+
+    // まとめ打ち（kya）と分け打ち（kixya / kilya）のどちらも Backspace 1回で空になる
+    expect(backspaceConverter(typeKeys('kya'))).toEqual({ kana: [], buffer: '' });
+    expect(backspaceConverter(typeKeys('kixya'))).toEqual({ kana: [], buffer: '' });
+    expect(backspaceConverter(typeKeys('kilya'))).toEqual({ kana: [], buffer: '' });
+    expect(backspaceConverter(typeKeys('denshixya'))).toEqual({ kana: ['で', 'ん'], buffer: '' });
+
+    // 表にない組み合わせ（あ＋ゃ）は末尾の「ゃ」だけが消える
+    expect(backspaceConverter(typeKeys('axya'))).toEqual({ kana: ['あ'], buffer: '' });
   });
 
   it('空状態での Backspace は同じ状態を返す', () => {

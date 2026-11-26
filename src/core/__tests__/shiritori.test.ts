@@ -107,6 +107,43 @@ describe('ゲーム開始とアプリの手番', () => {
       expect(result.state.usedWords.has('しま')).toBe(true);
     }
   });
+
+  it('アプリは子どもが返せる語が残る候補を優先して選ぶ（既定辞書: ほし→しか の後に「かげ」を避ける）', () => {
+    const start = createShiritoriGame(SHIRITORI_DICTIONARY, () => 0); // ほし
+    const child = submitChildWord(start, 'しか', SHIRITORI_DICTIONARY_SET);
+    expect(child.accepted).toBe(true);
+    if (!child.accepted) return;
+
+    // 乱数 3/28 でも「かげ」（次が「げ」で辞書に「げんかん」しかない）ではなく返答可能な語を選ぶ
+    const app = advanceAppTurn(child.state, SHIRITORI_DICTIONARY, () => 3 / 28);
+    expect(app.moved).toBe(true);
+    expect(app.state.status).toBe('playing');
+    expect(appCandidateWords(app.state.expectedKana, app.state.usedWords).length).toBeGreaterThan(0);
+  });
+
+  it('アプリが返した後に子どもが返せる語が尽きた場合は child-stuck になる', () => {
+    // ほし -> しか -> かげ（次「げ」は「げんかん」のみで返せない）
+    const dict = ['ほし', 'しか', 'かげ', 'げんかん'];
+    const start = createShiritoriGame(dict, () => 0); // ほし
+    const child = submitChildWord(start, 'しか', new Set(dict));
+    expect(child.accepted).toBe(true);
+    if (!child.accepted) return;
+
+    const app = advanceAppTurn(child.state, dict, () => 0);
+    expect(app.moved).toBe(true);
+    if (app.moved) {
+      expect(app.word).toBe('かげ');
+    }
+    expect(app.state.expectedKana).toBe('げ');
+    expect(app.state.status).toBe('child-stuck');
+  });
+
+  it('開始時点で子どもが返せる語が辞書に無い場合は child-stuck で開始する', () => {
+    const start = createShiritoriGame(['ほし'], () => 0);
+    expect(start.chain).toEqual([{ word: 'ほし', speaker: 'app' }]);
+    expect(start.expectedKana).toBe('し');
+    expect(start.status).toBe('child-stuck');
+  });
 });
 
 describe('子どもの手番の検証（submitChildWord）', () => {
