@@ -203,6 +203,53 @@ button:focus-visible {
   font-weight: 700;
 }
 
+.stage-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  inline-size: 100%;
+  max-inline-size: 50rem;
+}
+
+.stage-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-block-size: 3rem;
+  padding: 0.4rem 1.25rem;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.stage-button-locked {
+  border-color: var(--line);
+  background: #eceae2;
+  color: #5b6b77;
+  cursor: not-allowed;
+}
+
+.stage-badge {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.lesson-stage-badge {
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  background: #e6f2fa;
+  border: 1px solid var(--accent);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
 /* ---- 指の色（全画面共通・仕様 v0.3 §3） ---- */
 :root {
   --finger-pinky: #e05a8d;

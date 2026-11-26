@@ -18,8 +18,9 @@ import {
   type MatcherState,
 } from '../core/matcher';
 import { fingerOfKey } from '../lesson/keyboardLayout';
+import type { LessonPrompt } from '../lesson';
 import { SAMPLE_WORDS } from '../lesson/sampleWords';
-import { DEFAULT_SETTINGS, progressStore } from '../progress';
+import { DEFAULT_SETTINGS, progressStore, type ProgressStore } from '../progress';
 import type { LessonMode } from '../screen';
 
 const TITLES: Record<LessonMode, string> = {
@@ -35,14 +36,24 @@ const SHAKE_MS = 320;
 export interface LessonScreenProps {
   readonly mode: LessonMode;
   readonly onFinish: () => void;
-  /** 出題する単語リスト。省略時は組み込みのサンプル単語を使う（本実装は Issue #4）。 */
+  /** 出題する単語リスト。prompts が指定されていないときに使う。 */
   readonly words?: readonly string[];
-  /** 通常のキー案内を出すか（既定 true）。 */
+  /** 案内有無を含むレッスンお題リスト（Issue #4）。指定時は words より優先する。 */
+  readonly prompts?: readonly LessonPrompt[];
+  /** クリアを記録するレッスン ID（例: 'stage-a'）。全問打ち切ったときに解放・保存する。 */
+  readonly lessonId?: string;
+  /** ヘッダーに添えるステージ名など。 */
+  readonly stageLabel?: string;
+  /** 通常のキー案内を出すか（既定 true）。prompts の各お題の showGuide と組み合わせて使う。 */
   readonly showGuide?: boolean;
   /** 無入力から自動ヒントまでの時間（ミリ秒）。既定 5000ms。 */
   readonly hintDelayMs?: number;
   /** 単語完成から次のお題へ進むまでの間（ミリ秒）。既定 550ms。 */
   readonly wordTransitionMs?: number;
+  /** 進捗の保存先。テストで差し替えられる。 */
+  readonly store?: ProgressStore;
+  /** 全問打ち切ってレッスンをクリアしたときのコールバック。 */
+  readonly onLessonCleared?: (lessonId: string) => void;
 }
 
 function remainingGuideSpelling(state: MatcherState): string {
@@ -73,14 +84,26 @@ export function LessonScreen({
   mode,
   onFinish,
   words = SAMPLE_WORDS,
+  prompts,
+  lessonId,
+  stageLabel,
   showGuide = true,
   hintDelayMs = DEFAULT_HINT_DELAY_MS,
   wordTransitionMs = DEFAULT_WORD_TRANSITION_MS,
+  store = progressStore,
+  onLessonCleared,
 }: LessonScreenProps) {
-  const activeWords = words.length > 0 ? words : SAMPLE_WORDS;
+  const activePrompts: readonly LessonPrompt[] =
+    prompts && prompts.length > 0
+      ? prompts
+      : (words.length > 0 ? words : SAMPLE_WORDS).map((text) => ({
+          text,
+          showGuide: true,
+          kind: 'new' as const,
+        }));
 
   const [wordIndex, setWordIndex] = useState(0);
-  const [matcher, setMatcher] = useState<MatcherState>(() => createMatcher(activeWords[0]));
+  const [matcher, setMatcher] = useState<MatcherState>(() => createMatcher(activePrompts[0].text));
   const [hintActive, setHintActive] = useState(false);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [shakePhase, setShakePhase] = useState<0 | 1 | 2>(0);
@@ -92,11 +115,16 @@ export function LessonScreen({
   const flashTimerRef = useRef<number | undefined>(undefined);
   const shakeTimerRef = useRef<number | undefined>(undefined);
   const advanceTimerRef = useRef<number | undefined>(undefined);
+  const hintUsedForKanaRef = useRef(false);
+  const stalledForKanaRef = useRef(false);
+  const sessionStartRef = useRef<Date>(new Date());
+  const typedKanaCountRef = useRef(0);
+  const sessionSavedRef = useRef(false);
 
   // 保存済みの音設定を読み込む（IndexedDB が使えない環境では既定値のまま進める）。
   useEffect(() => {
     let cancelled = false;
-    progressStore
+    store
       .getSettings()
       .then((settings) => {
         if (!cancelled) {
@@ -110,7 +138,7 @@ export function LessonScreen({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [store]);
 
   // クリーンアップ
   useEffect(() => {
@@ -122,10 +150,12 @@ export function LessonScreen({
     };
   }, []);
 
+  const currentPrompt = activePrompts[wordIndex] ?? activePrompts[0];
+  const effectiveShowGuide = showGuide && currentPrompt.showGuide;
   const wordCompleted = isComplete(matcher);
   const currentGuideKey = guideKey(matcher);
   const currentNextKeys = guideNextKeys(matcher);
-  const activeFinger = showGuide || hintActive ? fingerOfKey(currentGuideKey) : undefined;
+  const activeFinger = effectiveShowGuide || hintActive ? fingerOfKey(currentGuideKey) : undefined;
   const effectiveVolume = soundOn ? soundVolume : 0;
 
   // 5秒間入力が止まったら次のキーを自動で光らせる（仕様 v0.3 §2.4）。
@@ -134,6 +164,7 @@ export function LessonScreen({
     if (wordCompleted || hintActive) return;
 
     hintTimerRef.current = window.setTimeout(() => {
+      stalledForKanaRef.current = true;
       setHintActive(true);
     }, hintDelayMs);
 
@@ -158,21 +189,50 @@ export function LessonScreen({
     }, SHAKE_MS);
   }, []);
 
+  const saveSessionIfNeeded = useCallback(() => {
+    if (sessionSavedRef.current || typedKanaCountRef.current <= 0) return;
+    sessionSavedRef.current = true;
+    const durationSec = Math.max(0, (Date.now() - sessionStartRef.current.getTime()) / 1000);
+    void store
+      .addSession({
+        date: sessionStartRef.current,
+        durationSec,
+        typedKanaCount: typedKanaCountRef.current,
+      })
+      .catch(() => {
+        // 保存に失敗してもれんしゅうは止めない
+      });
+  }, [store]);
+
+  const handleExitEarly = useCallback(() => {
+    saveSessionIfNeeded();
+    onFinish();
+  }, [onFinish, saveSessionIfNeeded]);
+
   const scheduleNextWord = useCallback(
     (completedIndex: number) => {
       window.clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = window.setTimeout(() => {
         const nextIndex = completedIndex + 1;
-        if (nextIndex < activeWords.length) {
+        if (nextIndex < activePrompts.length) {
+          hintUsedForKanaRef.current = false;
+          stalledForKanaRef.current = false;
           setWordIndex(nextIndex);
-          setMatcher(createMatcher(activeWords[nextIndex]));
+          setMatcher(createMatcher(activePrompts[nextIndex].text));
           setHintActive(false);
         } else {
+          saveSessionIfNeeded();
+          if (lessonId) {
+            void store.markLessonCleared(lessonId).catch(() => {
+              // 保存に失敗しても画面遷移は止めない
+            });
+            onLessonCleared?.(lessonId);
+          }
           onFinish();
         }
       }, wordTransitionMs);
     },
-    [activeWords, onFinish, wordTransitionMs],
+    [activePrompts, lessonId, onFinish, onLessonCleared, saveSessionIfNeeded, store, wordTransitionMs],
   );
 
   const handleKeyInput = useCallback(
@@ -199,6 +259,25 @@ export function LessonScreen({
         setMatcher(result.state);
         setHintActive(false);
 
+        if (result.completed.length > 0) {
+          const hintUsed = hintUsedForKanaRef.current;
+          const stalled = stalledForKanaRef.current;
+          hintUsedForKanaRef.current = false;
+          stalledForKanaRef.current = false;
+          typedKanaCountRef.current += result.completed.length;
+          for (const item of result.completed) {
+            void store
+              .recordKanaAttempt(item.kana, {
+                guided: effectiveShowGuide,
+                hintUsed,
+                stalled,
+              })
+              .catch(() => {
+                // 保存に失敗してもれんしゅうは止めない
+              });
+          }
+        }
+
         if (isComplete(result.state)) {
           playWordCompleteSound(effectiveVolume);
           scheduleNextWord(wordIndex);
@@ -222,7 +301,7 @@ export function LessonScreen({
         playWrongKeySound(effectiveVolume);
       }
     },
-    [effectiveVolume, flashKey, matcher, scheduleNextWord, triggerShake, wordIndex],
+    [effectiveShowGuide, effectiveVolume, flashKey, matcher, scheduleNextWord, store, triggerShake, wordIndex],
   );
 
   const handleKeyInputRef = useRef(handleKeyInput);
@@ -277,13 +356,13 @@ export function LessonScreen({
   const handleToggleSound = () => {
     const next = !soundOn;
     setSoundOn(next);
-    void progressStore.updateSettings({ soundOn: next }).catch(() => {
+    void store.updateSettings({ soundOn: next }).catch(() => {
       // 保存に失敗しても画面の動作は止めない
     });
   };
 
   const remainingGuide = remainingGuideSpelling(matcher);
-  const showRemainingGuide = (showGuide || hintActive) && remainingGuide.length > 0;
+  const showRemainingGuide = (effectiveShowGuide || hintActive) && remainingGuide.length > 0;
   const shakeClass =
     shakePhase === 1
       ? ' lesson-typed-shake lesson-typed-shake-a'
@@ -296,8 +375,12 @@ export function LessonScreen({
       <header className="bar lesson-bar">
         <div className="lesson-bar-left">
           <h1>{TITLES[mode]}</h1>
-          <span className="lesson-progress" aria-label={`おだい ${wordIndex + 1} / ${activeWords.length}`}>
-            {wordIndex + 1} / {activeWords.length}
+          {stageLabel && <span className="lesson-stage-badge">{stageLabel}</span>}
+          <span
+            className="lesson-progress"
+            aria-label={`おだい ${wordIndex + 1} / ${activePrompts.length}`}
+          >
+            {wordIndex + 1} / {activePrompts.length}
           </span>
         </div>
         <div className="lesson-bar-actions">
@@ -305,7 +388,10 @@ export function LessonScreen({
             type="button"
             className="button button-hint"
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setHintActive(true)}
+            onClick={() => {
+              hintUsedForKanaRef.current = true;
+              setHintActive(true);
+            }}
             disabled={wordCompleted}
           >
             ヒント
@@ -318,7 +404,7 @@ export function LessonScreen({
           >
             {soundOn ? 'おと ON' : 'おと OFF'}
           </button>
-          <button type="button" className="button" onClick={onFinish}>
+          <button type="button" className="button" onClick={handleExitEarly}>
             おわる
           </button>
         </div>
@@ -384,7 +470,7 @@ export function LessonScreen({
         guideKey={currentGuideKey}
         nextKeys={currentNextKeys}
         hintActive={hintActive}
-        showGuide={showGuide}
+        showGuide={effectiveShowGuide}
         pressedKey={pressedKey}
         onVirtualKeyPress={handleKeyInput}
       />
