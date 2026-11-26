@@ -5,6 +5,7 @@ import {
   playWordCompleteSound,
   playWrongKeySound,
 } from '../audio/sound';
+import { voicePlayer, type VoicePlayer } from '../audio/voice';
 import { HandDiagram } from '../components/HandDiagram';
 import { VirtualKeyboard } from '../components/VirtualKeyboard';
 import {
@@ -65,6 +66,8 @@ export interface LessonScreenProps {
     | 'recordKanaAttempt'
     | 'markLessonCleared'
   >;
+  /** 音声プレイヤー。テストで差し替えられる。 */
+  readonly voice?: VoicePlayer;
   /** 全問打ち切ってレッスンをクリアしたときのコールバック。 */
   readonly onLessonCleared?: (lessonId: string) => void;
 }
@@ -104,6 +107,7 @@ export function LessonScreen({
   hintDelayMs = DEFAULT_HINT_DELAY_MS,
   wordTransitionMs = DEFAULT_WORD_TRANSITION_MS,
   store = progressStore,
+  voice = voicePlayer,
   onLessonCleared,
 }: LessonScreenProps) {
   const defaultWords = mode === 'theme' ? DEFAULT_THEME_WORDS : SAMPLE_WORDS;
@@ -139,25 +143,36 @@ export function LessonScreen({
   const sessionSavedRef = useRef(false);
   const sessionIdPromiseRef = useRef<Promise<number | undefined> | undefined>(undefined);
   const lessonClearedRef = useRef(false);
+  const voiceOnRef = useRef(DEFAULT_SETTINGS.voiceOn);
+  const startVoicePlayedRef = useRef(false);
 
-  // 保存済みの音設定を読み込む（IndexedDB が使えない環境では既定値のまま進める）。
+  // 保存済みの音・音声設定を読み込み、音声 ON なら開始時の声かけを鳴らす。
   useEffect(() => {
     let cancelled = false;
     store
       .getSettings()
       .then((settings) => {
-        if (!cancelled) {
-          setSoundOn(settings.soundOn);
-          setSoundVolume(settings.soundVolume);
+        if (cancelled) return;
+        setSoundOn(settings.soundOn);
+        setSoundVolume(settings.soundVolume);
+        voiceOnRef.current = settings.voiceOn;
+        if (settings.voiceOn && !startVoicePlayedRef.current) {
+          startVoicePlayedRef.current = true;
+          voice.playPhrase('lesson-start');
         }
       })
       .catch(() => {
+        if (cancelled) return;
         // 既定値のまま続行
+        if (DEFAULT_SETTINGS.voiceOn && !startVoicePlayedRef.current) {
+          startVoicePlayedRef.current = true;
+          voice.playPhrase('lesson-start');
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [store]);
+  }, [store, voice]);
 
   // クリーンアップ
   useEffect(() => {
@@ -253,6 +268,9 @@ export function LessonScreen({
         // 遷移待ちの間に「おわる」を押しても解放状態が失われないようにする。
         saveSessionIfNeeded();
         markLessonClearedIfNeeded();
+        if (voiceOnRef.current) {
+          voice.playPhrase('lesson-clear');
+        }
       }
       advanceTimerRef.current = window.setTimeout(() => {
         if (nextIndex < activePrompts.length) {
@@ -266,7 +284,14 @@ export function LessonScreen({
         }
       }, wordTransitionMs);
     },
-    [activePrompts, finishLesson, markLessonClearedIfNeeded, saveSessionIfNeeded, wordTransitionMs],
+    [
+      activePrompts,
+      finishLesson,
+      markLessonClearedIfNeeded,
+      saveSessionIfNeeded,
+      voice,
+      wordTransitionMs,
+    ],
   );
 
   const handleKeyInput = useCallback(
@@ -318,6 +343,9 @@ export function LessonScreen({
             void store.recordWordTyped(completedPrompt.text).catch(() => {
               // 保存に失敗しても画面の動作は止めない
             });
+            if (voiceOnRef.current) {
+              voice.playWord(completedPrompt.text);
+            }
           }
           playWordCompleteSound(effectiveVolume);
           scheduleNextWord(wordIndex);
@@ -350,6 +378,7 @@ export function LessonScreen({
       scheduleNextWord,
       store,
       triggerShake,
+      voice,
       wordIndex,
     ],
   );

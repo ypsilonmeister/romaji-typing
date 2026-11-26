@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { voicePlayer, type VoicePlayer } from '../audio/voice';
 import {
   DEFAULT_SETTINGS,
   progressStore,
@@ -11,6 +12,7 @@ type Props = {
   onBack: () => void;
   store?: Pick<ProgressStore, 'getSessions'> &
     Partial<Pick<ProgressStore, 'getSettings' | 'updateSettings'>>;
+  voice?: VoicePlayer;
 };
 
 type History =
@@ -18,8 +20,12 @@ type History =
   | { status: 'error' }
   | { status: 'ready'; sessions: SessionRecord[] };
 
-/** 保護者ゲート。れんしゅうの記録と設定（音・自己申告）を扱う。開き方は後続で実装する。 */
-export function ParentGateScreen({ onBack, store = progressStore }: Props) {
+/** 保護者ゲート。れんしゅうの記録と設定（音・音声・自己申告）を扱う。開き方は後続で実装する。 */
+export function ParentGateScreen({
+  onBack,
+  store = progressStore,
+  voice = voicePlayer,
+}: Props) {
   const [history, setHistory] = useState<History>({ status: 'loading' });
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
@@ -51,6 +57,9 @@ export function ParentGateScreen({ onBack, store = progressStore }: Props) {
 
   const handleUpdateSetting = (changes: Partial<Settings>) => {
     setSettings((prev) => ({ ...prev, ...changes }));
+    if (changes.voiceOn === false) {
+      voice.stop();
+    }
     if (store.updateSettings) {
       void store.updateSettings(changes).catch(() => {
         // 保存に失敗しても画面の動作は止めない
@@ -70,6 +79,14 @@ export function ParentGateScreen({ onBack, store = progressStore }: Props) {
             onChange={(event) => handleUpdateSetting({ soundOn: event.target.checked })}
           />
           <span>効果音を鳴らす</span>
+        </label>
+        <label className="setting-row">
+          <input
+            type="checkbox"
+            checked={settings.voiceOn}
+            onChange={(event) => handleUpdateSetting({ voiceOn: event.target.checked })}
+          />
+          <span>音声（声かけ・読み上げ）を鳴らす</span>
         </label>
         <label className="setting-row">
           <input
