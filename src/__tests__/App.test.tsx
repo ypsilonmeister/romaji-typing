@@ -52,6 +52,17 @@ describe('画面遷移', () => {
     expect(screen.getByRole('button', { name: /^レッスン/ })).toBeDefined();
   });
 
+  it('しりとり → 終了 → モード選択', () => {
+    renderAtMenu();
+    click(/^しりとり/);
+    expect(heading('しりとり')).toBeDefined();
+    expect(screen.getByRole('region', { name: 'キーボード' })).toBeDefined();
+    click('おわる');
+    expect(heading('またね')).toBeDefined();
+    click('はじめに もどる');
+    expect(screen.getByRole('button', { name: /^しりとり/ })).toBeDefined();
+  });
+
   it.each([
     ['ことば図鑑', 'ことば図鑑'],
     ['おうちのひと', '保護者ゲート'],

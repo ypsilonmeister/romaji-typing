@@ -9,6 +9,7 @@ import { IntroScreen } from './screens/IntroScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { ModeSelectScreen } from './screens/ModeSelectScreen';
 import { ParentGateScreen } from './screens/ParentGateScreen';
+import { ShiritoriScreen } from './screens/ShiritoriScreen';
 import { ZukanScreen } from './screens/ZukanScreen';
 
 export interface AppProps {
@@ -107,8 +108,17 @@ export function App({ store = progressStore, voice = voicePlayer }: AppProps = {
           clearedLessonIds={clearedLessonIds}
           onStartLesson={startLesson}
           onStartStage={startStage}
+          onStartShiritori={() => setScreen({ name: 'shiritori' })}
           onOpenZukan={() => setScreen({ name: 'zukan' })}
           onOpenParentGate={() => setScreen({ name: 'parentGate' })}
+        />
+      );
+    case 'shiritori':
+      return (
+        <ShiritoriScreen
+          store={store}
+          voice={voice}
+          onFinish={(sessionIdPromise) => setScreen({ name: 'end', sessionIdPromise })}
         />
       );
     case 'lesson':
