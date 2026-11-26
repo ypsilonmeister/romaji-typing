@@ -6,6 +6,6 @@ export type Screen =
   | { name: 'intro' }
   | { name: 'menu' }
   | { name: 'lesson'; mode: LessonMode }
-  | { name: 'end' }
+  | { name: 'end'; sessionIdPromise?: Promise<number | undefined> }
   | { name: 'zukan' }
   | { name: 'parentGate' };

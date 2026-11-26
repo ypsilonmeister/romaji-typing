@@ -11,5 +11,12 @@ export {
   type KanaStatus,
 } from './mastery';
 export { createProgressStore, DEFAULT_SETTINGS, progressStore, type ProgressStore } from './store';
-export type { KanaProgress, LessonProgress, SessionRecord, Settings, WordProgress } from './types';
+export type {
+  KanaProgress,
+  LessonProgress,
+  SelfReport,
+  SessionRecord,
+  Settings,
+  WordProgress,
+} from './types';
 export { isLessonUnlocked } from './unlock';

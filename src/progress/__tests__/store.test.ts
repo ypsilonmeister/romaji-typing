@@ -134,12 +134,30 @@ describe('れんしゅうの記録', () => {
     expect(await store.getSessions()).toHaveLength(2);
     await store.close();
   });
+
+  it('保存した記録に自己申告を付け足せる', async () => {
+    const store = createProgressStore();
+    const id = await store.addSession({
+      date: new Date(2026, 10, 26),
+      durationSec: 90,
+      typedKanaCount: 15,
+    });
+    await store.updateSessionSelfReport(id, 'good');
+    expect(await store.getSessions()).toEqual([
+      { date: new Date(2026, 10, 26), durationSec: 90, typedKanaCount: 15, selfReport: 'good' },
+    ]);
+    await store.close();
+  });
 });
 
 describe('設定', () => {
   it('保存前は既定値を返す', async () => {
     const store = createProgressStore();
-    expect(await store.getSettings()).toEqual({ soundOn: true, soundVolume: 0.5 });
+    expect(await store.getSettings()).toEqual({
+      soundOn: true,
+      soundVolume: 0.5,
+      selfReportOn: false,
+    });
     await store.close();
   });
 
@@ -148,8 +166,13 @@ describe('設定', () => {
     await Promise.all([
       store.updateSettings({ soundOn: false }),
       store.updateSettings({ soundVolume: 0.8 }),
+      store.updateSettings({ selfReportOn: true }),
     ]);
-    expect(await store.getSettings()).toEqual({ soundOn: false, soundVolume: 0.8 });
+    expect(await store.getSettings()).toEqual({
+      soundOn: false,
+      soundVolume: 0.8,
+      selfReportOn: true,
+    });
     await store.close();
   });
 });

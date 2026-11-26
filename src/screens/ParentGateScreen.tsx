@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { progressStore, type ProgressStore, type SessionRecord } from '../progress';
+import {
+  DEFAULT_SETTINGS,
+  progressStore,
+  type ProgressStore,
+  type SessionRecord,
+  type Settings,
+} from '../progress';
 
 type Props = {
   onBack: () => void;
-  store?: Pick<ProgressStore, 'getSessions'>;
+  store?: Pick<ProgressStore, 'getSessions'> &
+    Partial<Pick<ProgressStore, 'getSettings' | 'updateSettings'>>;
 };
 
 type History =
@@ -11,9 +18,10 @@ type History =
   | { status: 'error' }
   | { status: 'ready'; sessions: SessionRecord[] };
 
-/** 保護者ゲート。れんしゅうの記録を表示する。開き方と設定は後続で実装する。 */
+/** 保護者ゲート。れんしゅうの記録と設定（音・自己申告）を扱う。開き方は後続で実装する。 */
 export function ParentGateScreen({ onBack, store = progressStore }: Props) {
   const [history, setHistory] = useState<History>({ status: 'loading' });
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
 
   useEffect(() => {
     let active = true;
@@ -26,20 +34,57 @@ export function ParentGateScreen({ onBack, store = progressStore }: Props) {
         if (active) setHistory({ status: 'error' });
       },
     );
+    if (store.getSettings) {
+      store
+        .getSettings()
+        .then((loaded) => {
+          if (active) setSettings(loaded);
+        })
+        .catch(() => {
+          // 既定値のまま続行
+        });
+    }
     return () => {
       active = false;
     };
   }, [store]);
 
+  const handleUpdateSetting = (changes: Partial<Settings>) => {
+    setSettings((prev) => ({ ...prev, ...changes }));
+    if (store.updateSettings) {
+      void store.updateSettings(changes).catch(() => {
+        // 保存に失敗しても画面の動作は止めない
+      });
+    }
+  };
+
   return (
     <main className="screen screen-center">
       <h1>保護者ゲート</h1>
+      <section className="panel parent-settings" aria-labelledby="settings-heading">
+        <h2 id="settings-heading">設定</h2>
+        <label className="setting-row">
+          <input
+            type="checkbox"
+            checked={settings.soundOn}
+            onChange={(event) => handleUpdateSetting({ soundOn: event.target.checked })}
+          />
+          <span>効果音を鳴らす</span>
+        </label>
+        <label className="setting-row">
+          <input
+            type="checkbox"
+            checked={settings.selfReportOn}
+            onChange={(event) => handleUpdateSetting({ selfReportOn: event.target.checked })}
+          />
+          <span>終了画面で自己申告「きょうは どうだった？」を表示する</span>
+        </label>
+      </section>
       <section className="panel history" aria-labelledby="history-heading">
         <h2 id="history-heading">れんしゅうの記録</h2>
         <p>記録は、この端末の中にだけ保存します。</p>
         <HistoryBody history={history} />
       </section>
-      <p>設定は、準備中です。</p>
       <button type="button" className="button" onClick={onBack}>
         もどる
       </button>

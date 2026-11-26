@@ -3,9 +3,13 @@
 import type { IDBPDatabase } from 'idb';
 import { DB_NAME, openProgressDb, type ProgressDB } from './db';
 import { applyKanaAttempt, type KanaAttempt } from './mastery';
-import type { KanaProgress, SessionRecord, Settings, WordProgress } from './types';
+import type { KanaProgress, SelfReport, SessionRecord, Settings, WordProgress } from './types';
 
-export const DEFAULT_SETTINGS: Readonly<Settings> = { soundOn: true, soundVolume: 0.5 };
+export const DEFAULT_SETTINGS: Readonly<Settings> = {
+  soundOn: true,
+  soundVolume: 0.5,
+  selfReportOn: false,
+};
 
 /**
  * 進捗の保存先を作る。データベースは最初の読み書きで開く。
@@ -83,9 +87,20 @@ export function createProgressStore(dbName: string = DB_NAME) {
       return (await open()).getAll('wordProgress');
     },
 
-    /** れんしゅうを1回終えるたびに呼ぶ。 */
-    async addSession(session: SessionRecord): Promise<void> {
-      await (await open()).add('sessions', session);
+    /** れんしゅうを1回終えるたびに呼ぶ。保存した記録のキーを返す。 */
+    async addSession(session: SessionRecord): Promise<number> {
+      return (await open()).add('sessions', session);
+    },
+
+    /** 終了画面での本人の自己申告を、直前のれんしゅう記録に付け足す。 */
+    async updateSessionSelfReport(sessionId: number, selfReport: SelfReport): Promise<void> {
+      const tx = (await open()).transaction('sessions', 'readwrite');
+      const existing = await tx.store.get(sessionId);
+      if (existing) {
+        await Promise.all([tx.store.put({ ...existing, selfReport }, sessionId), tx.done]);
+      } else {
+        await tx.done;
+      }
     },
 
     /** れんしゅうの記録を新しい順に返す。 */
