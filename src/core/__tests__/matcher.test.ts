@@ -5,6 +5,7 @@ import {
   backspace,
   candidates,
   createMatcher,
+  guideKey,
   isComplete,
   type MatcherState,
   nextKeys,
@@ -33,7 +34,8 @@ function followGuide(word: string): string {
   let state = createMatcher(word);
   let keys = '';
   while (!isComplete(state)) {
-    const key = nextKeys(state)[0];
+    const key = guideKey(state)!;
+    expect(key, `${word}: ${keys} の次の案内`).toBeDefined();
     const result = pressKey(state, key);
     expect(result.accepted).toBe(true);
     state = result.state;
@@ -44,10 +46,10 @@ function followGuide(word: string): string {
 }
 
 /** 案内のキーを順に返しながら、keys を入力する。 */
-function guideWhileTyping(word: string, keys: string): string[] {
+function guideWhileTyping(word: string, keys: string): (string | undefined)[] {
   let state = createMatcher(word);
   return [...keys].map((key) => {
-    const guide = nextKeys(state)[0];
+    const guide = guideKey(state);
     state = pressKey(state, key).state;
     return guide;
   });
@@ -323,7 +325,7 @@ describe('案内の追従', () => {
     ['じゃ', 'zya', ['j', 'y', 'a']],
     ['じゃ', 'jya', ['j', 'a', 'a']],
     ['きゃ', 'kixya', ['k', 'y', 'x', 'y', 'a']],
-    ['っ', 'ltu', ['x', 't', 'u']],
+    ['っ', 'ltu', [undefined, 't', 'u']],
   ])('%s を %s と打つと、案内がその綴りに切り替わる', (word, keys, guides) => {
     expect(guideWhileTyping(word, keys)).toEqual(guides);
   });
@@ -332,6 +334,7 @@ describe('案内の追従', () => {
     expect(followGuide('まっちゃ')).toBe('maccha');
     expect(guideWhileTyping('まっちゃ', 'mattya')).toEqual(['m', 'a', 'c', 't', 'y', 'a']);
     expect(nextKeys(type('まっちゃ', 'ma'))).toEqual(['c', 't', 'x', 'l']);
+    expect(guideKey(type('まっちゃ', 'ma'))).toBe('c');
   });
 
   it('xtu で打ち始めたら xtu に沿う', () => {
@@ -345,7 +348,46 @@ describe('案内の追従', () => {
   });
 
   it('Backspace で戻ると案内も戻る', () => {
-    expect(nextKeys(backspace(type('ちゃ', 't')))[0]).toBe('c');
+    expect(guideKey(backspace(type('ちゃ', 't')))).toBe('c');
+  });
+
+  it('完成後は案内がない', () => {
+    expect(guideKey(type('あ', 'a'))).toBeUndefined();
+  });
+});
+
+// §1.4: x・l の単独入力は受け付けるが、案内には出さない。
+describe('推奨の打ち方がない位置', () => {
+  it.each([
+    ['っ', ''],
+    ['ゃ', ''],
+    ['ゅ', ''],
+    ['ょ', ''],
+    ['あっ', 'a'],
+    ['あゃ', 'a'],
+    ['っあ', ''],
+    ['っな', ''],
+    ['っん', ''],
+  ])('「%s」（%s の後）: 案内は出さず、x と l は受け付ける', (word, done) => {
+    const state = type(word, done);
+    expect(guideKey(state)).toBeUndefined();
+    expect(nextKeys(state)).toEqual(['x', 'l']);
+    for (const key of ['x', 'l']) {
+      expect(pressKey(state, key).accepted).toBe(true);
+    }
+  });
+
+  it.each([
+    ['ゃ', 'xya', [undefined, 'y', 'a']],
+    ['ゅ', 'lyu', [undefined, 'y', 'u']],
+    ['あっ', 'axtu', ['a', undefined, 't', 'u']],
+  ])('「%s」を %s と打ち始めた後は、案内が追従する', (word, keys, guides) => {
+    expect(guideWhileTyping(word, keys)).toEqual(guides);
+    expectCompletes(word, keys);
+  });
+
+  it('Backspace で打ち始める前に戻ると、案内はまた消える', () => {
+    expect(guideKey(backspace(type('ゃ', 'x')))).toBeUndefined();
   });
 });
 
@@ -406,8 +448,9 @@ describe('仕様 §5 の単語', () => {
   });
 });
 
-describe('全かなの2単位の組み合わせ', () => {
-  it('案内するキーと受け付けるキーが常に一致し、どの打ち方でも完成まで進める', () => {
+describe('全項目の2つ組の連結', () => {
+  // 項目を連結した文字列なので、き＋ゃ のように拗音1単位になる組も含む。
+  it('2項目を連結した文字列で、完成前は nextKeys と受理が一致し、行き止まりがない', () => {
     const kana = Object.keys(ROMAJI_TABLE);
     const alphabet = [...'abcdefghijklmnopqrstuvwxyz'];
     const failures: string[] = [];
@@ -423,6 +466,10 @@ describe('全かなの2単位の組み合わせ', () => {
           seen.add(id);
           const guided = nextKeys(state);
           if (guided.length === 0) failures.push(`${first}${second} 行き止まり ${id}`);
+          const guide = guideKey(state);
+          if (guide !== undefined && !guided.includes(guide)) {
+            failures.push(`${first}${second} ${id} 受け付けない案内 ${guide}`);
+          }
           for (const key of alphabet) {
             const result = pressKey(state, key);
             if (result.accepted !== guided.includes(key)) {

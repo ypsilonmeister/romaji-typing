@@ -12,12 +12,14 @@ export interface Option {
    * 「ん」の n 1つと、促音の子音重ねに使う。
    */
   readonly followers?: readonly string[];
+  /** 受け付けるが、打ち始める前は案内に出さない打ち方（§1.4 の x・l の単独入力）。 */
+  readonly acceptOnly?: boolean;
 }
 
 export interface Unit {
   /** かな1単位。拗音は2文字。 */
   readonly kana: string;
-  /** 案内の優先順。先頭が推奨の打ち方。 */
+  /** 案内の優先順。推奨の打ち方があれば先頭。 */
   readonly options: readonly Option[];
 }
 
@@ -47,13 +49,16 @@ export interface KeyResult {
   readonly completed: readonly CompletedKana[];
 }
 
-/** 「ん」の直後がこれらで始まる場合は nn が必要（母音・や行・わ行・ら行と、n で始まるな行・ん）。 */
+/** 「ん」の直後がこれらで始まる場合は nn が必要（§2.3 の母音・や行・ら行・わ行・な行・ん）。 */
 const NEEDS_DOUBLE_N = new Set('あいうえおやゆよらりるれろわをなにぬねのん');
 
 /** 促音で重ねられない先頭文字。母音と n（nn は「ん」）、小さいかなの x・l 接頭辞。 */
 const NOT_DOUBLABLE = new Set('aiueonxl');
 
-/** かなの打ち始めになりうるキー。推奨の打ち方のものが先。 */
+/** 単独の綴り（x・l 接頭辞）を案内に出さないかな（§1.4）。 */
+const UNGUIDED_ALONE = new Set('っゃゅょ');
+
+/** かなの打ち始めになりうるキー。推奨の打ち方があれば、そのキーが先。 */
 function firstKeys(unit: Unit): string[] {
   return [...new Set(unit.options.map((option) => option.romaji[0]))];
 }
@@ -61,7 +66,8 @@ function firstKeys(unit: Unit): string[] {
 function buildUnit(kana: string, next: Unit | undefined, isOnlyUnit: boolean): Unit {
   const spellings = spellingsOf(kana);
   if (!spellings) throw new Error(`対応表にないかなです: ${kana}`);
-  const options: Option[] = spellings.map((romaji) => ({ romaji }));
+  const acceptOnly = UNGUIDED_ALONE.has(kana);
+  const options: Option[] = spellings.map((romaji) => ({ romaji, acceptOnly }));
 
   if (kana === 'ん') {
     if (!next) {
@@ -76,7 +82,7 @@ function buildUnit(kana: string, next: Unit | undefined, isOnlyUnit: boolean): U
     const doubled = firstKeys(next)
       .filter((key) => !NOT_DOUBLABLE.has(key))
       .map((key) => ({ romaji: key, followers: [key] }));
-    // 子音の重ねを推奨にし、xtu / ltu は案内に出さない（§1.4）。
+    // 子音の重ねを推奨にする。重ねられない位置では、案内できる打ち方がない（§1.4）。
     options.unshift(...doubled);
   }
 
@@ -120,8 +126,8 @@ export function candidates(state: MatcherState): readonly Option[] {
 }
 
 /**
- * いま受け付けるキー。先頭が案内するキー（§2.2）で、推奨綴りに沿い、
- * 別の綴りで打ち始めていればその綴りに沿う。完成後は空。
+ * 入力中のかなとして受け付けるキー（案内の優先順）。案内の表示には guideKey を使う。
+ * 完成後は空（語末の「ん」の直後に受け流す n は含まない）。
  */
 export function nextKeys(state: MatcherState): string[] {
   const keys = candidates(state).flatMap((option) =>
@@ -130,6 +136,17 @@ export function nextKeys(state: MatcherState): string[] {
       : (option.followers ?? []),
   );
   return [...new Set(keys)];
+}
+
+/**
+ * 案内するキー（§2.2）。推奨綴りに沿い、別の綴りで打ち始めていればその綴りに沿う。
+ * 完成後と、打ち始める前で推奨の打ち方がない場合（§1.4）は undefined。
+ */
+export function guideKey(state: MatcherState): string | undefined {
+  if (state.typed === '' && candidates(state).every((option) => option.acceptOnly)) {
+    return undefined;
+  }
+  return nextKeys(state)[0];
 }
 
 function completeCurrent(state: MatcherState, romaji: string): KeyResult {
