@@ -69,7 +69,7 @@ describe('終了画面（仕様 v0.3 §7）', () => {
     });
   });
 
-  it('保護者ゲートで自己申告を ON にすると、終了画面に反映される', async () => {
+  it('保護者ゲートで自己申告を ON にし、かなを打って終了すると自己申告が表示され回答が保存される', async () => {
     render(<App />);
     fireEvent.click(screen.getByRole('button', { name: 'はじめる' }));
     fireEvent.click(screen.getByRole('button', { name: 'おうちのひと' }));
@@ -83,8 +83,31 @@ describe('終了画面（仕様 v0.3 §7）', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'もどる' }));
     fireEvent.click(screen.getByRole('button', { name: /^レッスン/ }));
+    fireEvent.keyDown(window, { key: 'a' });
     fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
 
     expect(await screen.findByText('きょうは どうだった？')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'よかった' }));
+
+    await waitFor(async () => {
+      const sessions = await progressStore.getSessions();
+      expect(sessions).toHaveLength(1);
+      expect(sessions[0]?.selfReport).toBe('good');
+    });
+  });
+
+  it('自己申告が ON でも無入力で終了した場合は保存先がないため選択肢を表示しない', async () => {
+    await progressStore.updateSettings({ selfReportOn: true });
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'はじめる' }));
+    fireEvent.click(screen.getByRole('button', { name: /^テーマで あそぶ/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
+
+    expect(screen.getByRole('heading', { level: 1, name: 'またね' })).toBeDefined();
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).selfReportOn).toBe(true);
+    });
+    expect(screen.queryByText('きょうは どうだった？')).toBeNull();
+    expect(await progressStore.getSessions()).toHaveLength(0);
   });
 });

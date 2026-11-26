@@ -31,6 +31,7 @@ export function EndScreen({
   store = progressStore,
 }: EndScreenProps) {
   const [selfReportOn, setSelfReportOn] = useState(DEFAULT_SETTINGS.selfReportOn);
+  const [sessionId, setSessionId] = useState<number | undefined>(undefined);
   const [selected, setSelected] = useState<SelfReport | null>(null);
 
   useEffect(() => {
@@ -48,26 +49,40 @@ export function EndScreen({
     };
   }, [store]);
 
-  const handleSelect = (value: SelfReport) => {
-    setSelected(value);
-    if (!sessionIdPromise || !store.updateSessionSelfReport) return;
-    const save = store.updateSessionSelfReport;
-    void sessionIdPromise
-      .then((sessionId) => {
-        if (sessionId !== undefined) {
-          return save(sessionId, value);
-        }
+  useEffect(() => {
+    let active = true;
+    if (!sessionIdPromise) {
+      setSessionId(undefined);
+      return;
+    }
+    sessionIdPromise
+      .then((id) => {
+        if (active) setSessionId(id);
       })
       .catch(() => {
-        // 保存に失敗しても画面の動作は止めない
+        if (active) setSessionId(undefined);
       });
+    return () => {
+      active = false;
+    };
+  }, [sessionIdPromise]);
+
+  const canSelfReport =
+    selfReportOn && sessionId !== undefined && typeof store.updateSessionSelfReport === 'function';
+
+  const handleSelect = (value: SelfReport) => {
+    setSelected(value);
+    if (sessionId === undefined || !store.updateSessionSelfReport) return;
+    void store.updateSessionSelfReport(sessionId, value).catch(() => {
+      // 保存に失敗しても画面の動作は止めない
+    });
   };
 
   return (
     <main className="screen screen-center">
       <h1 className="big-message">またね</h1>
 
-      {selfReportOn && (
+      {canSelfReport && (
         <section className="panel self-report" aria-labelledby="self-report-heading">
           <h2 id="self-report-heading">きょうは どうだった？</h2>
           <div className="self-report-choices">

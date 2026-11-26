@@ -1,12 +1,48 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import specMarkdown from '../../../spec-v0.3-detail.md?raw';
 import { createMatcher, guideKey, isComplete, pressKey } from '../../core/matcher';
 import { romajiForWord, THEME_PACKS } from '../wordPacks';
 
 /** §5 では単一 n 表記だが §2.3 では ら行 の前で nn を要求する語。 */
 const SPEC_SECTION5_SINGLE_N_BEFORE_R = new Set(['せんろ']);
 
+/** spec-v0.3-detail.md の §5.1〜§5.7 からテーマ名と かな(romaji) の並びを抽出する。 */
+function parseSpecSection5(): { name: string; words: { kana: string; romaji: string }[] }[] {
+  const lines = specMarkdown.split(/\r?\n/);
+  const packs: { name: string; words: { kana: string; romaji: string }[] }[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const headingMatch = /^### 5\.\d+\s+(.+)$/.exec(lines[i].trim());
+    if (!headingMatch) continue;
+    const name = headingMatch[1].trim();
+    let j = i + 1;
+    while (j < lines.length && lines[j].trim() === '') j += 1;
+    const entryLine = lines[j]?.trim() ?? '';
+    const words = entryLine.split('、').map((token) => {
+      const m = /^(.+?)\(([a-z]+)\)$/.exec(token.trim());
+      if (!m) {
+        throw new Error(`§5 の形式が不正です: ${name} -> ${token}`);
+      }
+      return { kana: m[1], romaji: m[2] };
+    });
+    packs.push({ name, words });
+  }
+  return packs;
+}
+
 describe('テーマ別単語パック（仕様 v0.3 §5）', () => {
+  it('spec-v0.3-detail.md §5 の全テーマ・全164語のかなとローマ字表記に完全一致する', () => {
+    const specPacks = parseSpecSection5();
+    expect(specPacks.length).toBe(7);
+    expect(
+      THEME_PACKS.map((pack) => ({
+        name: pack.name,
+        words: pack.words.map((word) => ({ kana: word.kana, romaji: word.romaji })),
+      })),
+    ).toEqual(specPacks);
+  });
+
   it('仕様 §5 の7テーマ・全164語を定義順で収録している', () => {
     expect(THEME_PACKS.map((pack) => [pack.name, pack.words.length])).toEqual([
       ['宇宙', 24],
