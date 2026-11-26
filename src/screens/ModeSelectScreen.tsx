@@ -6,6 +6,7 @@ type Props = {
   clearedLessonIds: ReadonlySet<string>;
   onStartLesson: (mode: LessonMode) => void;
   onStartStage: (stageId: StageId) => void;
+  onStartShiritori: () => void;
   onOpenZukan: () => void;
   onOpenParentGate: () => void;
 };
@@ -15,6 +16,7 @@ export function ModeSelectScreen({
   clearedLessonIds,
   onStartLesson,
   onStartStage,
+  onStartShiritori,
   onOpenZukan,
   onOpenParentGate,
 }: Props) {
@@ -40,6 +42,10 @@ export function ModeSelectScreen({
         <button type="button" className="card" onClick={() => onStartLesson('theme')}>
           <span className="card-title">テーマで あそぶ</span>
           <span>ことばを うって あそぶ</span>
+        </button>
+        <button type="button" className="card" onClick={onStartShiritori}>
+          <span className="card-title">しりとり</span>
+          <span>ことばを つなげて あそぶ</span>
         </button>
       </div>
       <section className="stage-list" aria-label="ステージ選択">

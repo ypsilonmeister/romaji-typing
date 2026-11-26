@@ -9,6 +9,8 @@ export interface VirtualKeyboardProps {
   readonly hintActive: boolean;
   /** 通常案内を出すか（既定 true）。false のときは hintActive 時のみ光らせる。 */
   readonly showGuide?: boolean;
+  /** 自由入力モードなど、単一の案内キーがない場合に nextKeys 全体を光らせるか（既定 false）。 */
+  readonly highlightAllNext?: boolean;
   /** 直前に押されたキー（瞬間発光用）。 */
   readonly pressedKey: string | null;
   /** バーチャルキーボードのタップ入力ハンドラ。 */
@@ -20,6 +22,7 @@ export function VirtualKeyboard({
   nextKeys,
   hintActive,
   showGuide = true,
+  highlightAllNext = false,
   pressedKey,
   onVirtualKeyPress,
 }: VirtualKeyboardProps) {
@@ -34,6 +37,8 @@ export function VirtualKeyboard({
     const isHintGlow = hintActive && normalizedGuide === code;
     const isAltNext =
       normalizedGuide !== undefined && !isGuide && shouldHighlightGuide && nextSet.has(code);
+    const isNextHighlight =
+      highlightAllNext && !isGuide && shouldHighlightGuide && nextSet.has(code);
     const isPressed = normalizedPressed === code;
     const fingerGroup = spec.finger ? FINGER_GROUP[spec.finger] : undefined;
 
@@ -45,6 +50,7 @@ export function VirtualKeyboard({
       isGuide ? 'kb-key-guide' : '',
       isHintGlow ? 'kb-key-hint' : '',
       isAltNext ? 'kb-key-alt' : '',
+      isNextHighlight ? 'kb-key-next' : '',
       isPressed ? 'kb-key-pressed' : '',
     ]
       .filter(Boolean)
@@ -61,6 +67,7 @@ export function VirtualKeyboard({
         data-finger={fingerGroup ?? ''}
         data-guide={isGuide ? 'true' : undefined}
         data-hint={isHintGlow ? 'true' : undefined}
+        data-next={isNextHighlight ? 'true' : undefined}
         aria-label={spec.code === ' ' ? 'スペース' : spec.label}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => onVirtualKeyPress(spec.code)}

@@ -8,6 +8,7 @@ export type Screen =
   | { name: 'intro' }
   | { name: 'menu' }
   | { name: 'lesson'; mode: LessonMode; lesson?: GeneratedLesson }
+  | { name: 'shiritori' }
   | { name: 'end'; sessionIdPromise?: Promise<number | undefined> }
   | { name: 'zukan' }
   | { name: 'parentGate' };
