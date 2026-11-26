@@ -473,6 +473,43 @@ describe('createVoicePlayer', () => {
     ]);
   });
 
+  it('待機中にシステム時計が進んでも、要求時点からの最小待機時間（420 ms）を短縮しない', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(10_000);
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    expect(player.playPhrase('lesson-start')).toBe(true);
+    expect(player.playWord('あさ', { delayMs: 420 })).toBe(true);
+
+    // 1 ms 経過後にシステム時計だけ大きく進めてから先行音声を終了する
+    vi.advanceTimersByTime(1);
+    vi.setSystemTime(20_001);
+    created[0].emit('ended');
+
+    // システム時計が進んでいても即座には再生されず、残り 419 ms 待つ
+    expect(created).toHaveLength(1);
+    expect(player.isPlaying()).toBe(false);
+
+    vi.advanceTimersByTime(418);
+    expect(created).toHaveLength(1);
+
+    // 要求時点から 420 ms 経過したタイミングで再生を開始する
+    vi.advanceTimersByTime(1);
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+    ]);
+  });
+
   it('破棄できる単語がキューにない場合は、固定文保護のため maxQueueSize を超えても待機を保持する', () => {
     const created: FakeAudio[] = [];
     const player = createVoicePlayer({

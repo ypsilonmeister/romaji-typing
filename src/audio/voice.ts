@@ -52,10 +52,17 @@ type QueueKind = 'milestone' | 'self-report' | 'word';
 interface QueueEntry {
   readonly url: string;
   readonly kind: QueueKind;
-  readonly notBefore: number;
+  readonly notBefore: number | null;
 }
 
 const DEFAULT_MAX_QUEUE_SIZE = 3;
+
+function nowMs(): number {
+  if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
 
 function classifyPhrase(key: VoicePhraseKey): QueueKind {
   switch (key) {
@@ -127,7 +134,7 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
   function advanceQueue(): void {
     while (queue.length > 0 && !isBusy()) {
       const next = queue.shift()!;
-      const remainingMs = next.notBefore > 0 ? Math.max(0, next.notBefore - Date.now()) : 0;
+      const remainingMs = next.notBefore !== null ? Math.max(0, next.notBefore - nowMs()) : 0;
       scheduleOrStart(next.url, remainingMs);
     }
   }
@@ -199,7 +206,7 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
       return false;
     }
 
-    const notBefore = delayMs > 0 ? Date.now() + delayMs : 0;
+    const notBefore = delayMs > 0 ? nowMs() + delayMs : null;
 
     if (kind === 'self-report') {
       // 待機中の自己申告がすでにあれば最新の選択で置き換え、完了・終了の声かけを押し出さない。
