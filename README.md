@@ -4,6 +4,20 @@
 
 画面にキーボードを表示し、次に押すキーと使う指を案内しながら、かな→ローマ字の変換そのものを遊びとして学ぶ Web アプリ。IME の変換操作なしに、アプリ側の照合で遊べる形にする。
 
+## 開発
+
+Node.js 22 系を使う（Vite の要件は 20.19 以上または 22.12 以上）。
+
+```sh
+npm ci
+npm run dev      # 開発サーバー（表示されたURLの /romaji-typing/ を開く）
+npm test         # Vitest
+npm run build    # 型チェックと dist/ へのビルド
+npm run preview  # ビルド結果の確認
+```
+
+`main` への push で、GitHub Actions がテストとビルドを行い、GitHub Pages に公開する。
+
 ## 設計文書
 
 - [仕様骨格 v0.1](spec-v0.1.md) — 初期の骨格

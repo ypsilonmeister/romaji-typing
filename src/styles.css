@@ -1,0 +1,218 @@
+/*
+ * 表示前提（仕様 v0.3 §8）: 設計下限は 1366×768。ブラウザの実効表示域は縦 約650px。
+ * この高さで、どの画面もスクロールなしに収める。
+ */
+:root {
+  --bg: #f6f3ea;
+  --surface: #ffffff;
+  --text: #24323d;
+  --line: #9aa8b2;
+  --accent: #1f6f9f;
+  --gap: clamp(0.5rem, 1.8dvh, 1rem);
+  --radius: 1rem;
+
+  color: var(--text);
+  background: var(--bg);
+  font-family: system-ui, -apple-system, 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+  line-height: 1.5;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.75rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+}
+
+kbd {
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0 0.35em;
+  background: var(--bg);
+  font-family: inherit;
+}
+
+/* ---- ボタン ---- */
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.button {
+  min-block-size: 3rem;
+  padding: 0.4rem 1.75rem;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.button-primary {
+  min-block-size: 4rem;
+  padding-inline: 3.5rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.button-quiet {
+  border-color: var(--line);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+/* ---- 画面の共通レイアウト ---- */
+
+/* 中身が表示域より大きい場合は伸びてスクロールできる（切り取らない）。 */
+.screen {
+  min-block-size: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+.screen-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  inline-size: 100%;
+}
+
+.panel {
+  max-inline-size: 52rem;
+  padding: var(--gap) 1.5rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: start;
+}
+
+.panel ol {
+  margin-block: 0.5rem 0;
+}
+
+.big-message {
+  font-size: clamp(3rem, 12dvh, 6rem);
+}
+
+/* ---- モード選択 ---- */
+
+.screen-menu {
+  justify-content: space-between;
+}
+
+.cards {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 24rem));
+  align-content: center;
+  gap: 2rem;
+  inline-size: 100%;
+  justify-content: center;
+}
+
+.card {
+  min-block-size: min(18rem, 45dvh);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 3px solid var(--accent);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  font-size: 1.25rem;
+}
+
+.card-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+}
+
+/* ---- レッスン画面 ---- */
+
+/*
+ * 高さは表示域ぴったり。見出し行以外は比率で割り振るため、
+ * 中身が枠に収まる限りスクロールは出ない。
+ * 35rem より低い表示域では、つぶさずにスクロールさせる。
+ */
+.lesson {
+  block-size: 100dvh;
+  min-block-size: 35rem;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  grid-template-rows: auto minmax(0, 3fr) minmax(0, 1.2fr) minmax(0, 5fr);
+  grid-template-areas:
+    'bar bar'
+    'prompt prompt'
+    'typed typed'
+    'keyboard hands';
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+.lesson-bar {
+  grid-area: bar;
+}
+
+.lesson-prompt {
+  grid-area: prompt;
+  font-size: clamp(2rem, 8dvh, 5rem);
+}
+
+.lesson-typed {
+  grid-area: typed;
+  font-size: 1.5rem;
+}
+
+.lesson-keyboard {
+  grid-area: keyboard;
+}
+
+.lesson-hands {
+  grid-area: hands;
+}
+
+/* 後続チケットで中身に置き換える仮の枠。 */
+.slot {
+  display: grid;
+  place-content: center;
+  min-block-size: 0;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
