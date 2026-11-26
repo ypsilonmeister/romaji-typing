@@ -73,60 +73,75 @@ function pickWeightedDistinct(
 }
 
 /**
- * 新規ステージの導入かなをできるだけ少ない語数で網羅するように選ぶ（貪欲被覆）。
- * 選んだ語数が limit に満たない場合は、残りの候補語から補う。
+ * 新規ステージの導入かなをできるだけ少ない語数で網羅するように選ぶ。
+ * 1語しか含まない必須語（ユニークな未カバーかなを持つ語）を優先し、残りを貪欲被覆で埋める。
  */
-function pickCoveringWords(
+function pickMinimalCover(
   stage: StageDefinition,
-  limit: number,
+  maxCount: number,
   progressMap: ReadonlyMap<string, KanaProgress>,
   random: () => number,
 ): string[] {
   const pool = [...new Set([...stage.exampleWords, ...stage.practiceWords])];
+  const wordUnits = new Map<string, Set<string>>(pool.map((word) => [word, new Set(splitKana(word))]));
   const uncovered = new Set(stage.introducedKana);
   const picked: string[] = [];
   const used = new Set<string>();
 
-  while (picked.length < limit && uncovered.size > 0) {
-    let bestGain = 0;
-    let bestCandidates: string[] = [];
-
-    for (const word of pool) {
-      if (used.has(word)) continue;
-      const units = new Set(splitKana(word));
-      let gain = 0;
-      for (const unit of units) {
-        if (uncovered.has(unit)) gain++;
+  while (picked.length < maxCount && uncovered.size > 0) {
+    // 残りの未使用候補語の中で、ある未カバーかなを唯一含む必須語を探す。
+    const essentialSet = new Set<string>();
+    for (const kana of uncovered) {
+      let soleWord: string | null = null;
+      let count = 0;
+      for (const word of pool) {
+        if (used.has(word)) continue;
+        if (wordUnits.get(word)!.has(kana)) {
+          soleWord = word;
+          count++;
+          if (count > 1) break;
+        }
       }
-      if (gain > bestGain) {
-        bestGain = gain;
-        bestCandidates = [word];
-      } else if (gain === bestGain && gain > 0) {
-        bestCandidates.push(word);
+      if (count === 1 && soleWord !== null) {
+        essentialSet.add(soleWord);
       }
     }
 
-    if (bestGain === 0) break;
+    let candidates: string[] = [];
+    if (essentialSet.size > 0) {
+      candidates = [...essentialSet];
+    } else {
+      let bestGain = 0;
+      for (const word of pool) {
+        if (used.has(word)) continue;
+        const units = wordUnits.get(word)!;
+        let gain = 0;
+        for (const unit of units) {
+          if (uncovered.has(unit)) gain++;
+        }
+        if (gain > bestGain) {
+          bestGain = gain;
+          candidates = [word];
+        } else if (gain === bestGain && gain > 0) {
+          candidates.push(word);
+        }
+      }
+      if (bestGain === 0) break;
+    }
 
-    // 同じ被覆数なら進捗の重み付きで選ぶ。
-    const [chosen] = pickWeightedDistinct(bestCandidates, 1, progressMap, random);
+    // 同条件の候補は進捗の重み付きで選ぶ。
+    const [chosen] = pickWeightedDistinct(candidates, 1, progressMap, random);
     picked.push(chosen);
     used.add(chosen);
-    for (const unit of splitKana(chosen)) {
+    for (const unit of wordUnits.get(chosen)!) {
       uncovered.delete(unit);
     }
   }
 
   // 万一単語だけで未カバーのかなが残れば、単独かなで補う。
   for (const kana of uncovered) {
-    if (picked.length >= limit) break;
+    if (picked.length >= maxCount) break;
     picked.push(kana);
-  }
-
-  // 枠が余っていれば、残りのステージ単語から補う。
-  if (picked.length < limit) {
-    const rest = pool.filter((word) => !used.has(word));
-    picked.push(...pickWeightedDistinct(rest, limit - picked.length, progressMap, random));
   }
 
   return picked;
@@ -215,10 +230,23 @@ export function generateLesson(
     ...new Set(priorStages.flatMap((prior) => [...prior.exampleWords, ...prior.practiceWords])),
   ];
 
-  // 新規かなを網羅しつつ、最低2問は既習（案内なし）を混ぜる。
-  const targetReviewCount = Math.max(2, Math.round(totalCount * 0.25));
-  const maxNewCount = totalCount - targetReviewCount;
-  const newWords = pickCoveringWords(stage, maxNewCount, progressMap, random);
+  // 案内なしの復習枠を最低1問は確保しつつ、まず全導入かなを最小語数で網羅する。
+  const minReviewCount = reviewPool.length > 0 ? 1 : 0;
+  const targetReviewCount = Math.min(
+    reviewPool.length,
+    Math.max(2, Math.round(totalCount * 0.25)),
+  );
+  const coveringWords = pickMinimalCover(stage, totalCount - minReviewCount, progressMap, random);
+  const desiredNewCount = Math.max(coveringWords.length, totalCount - targetReviewCount);
+  const newWords = [...coveringWords];
+  if (newWords.length < desiredNewCount) {
+    const used = new Set(newWords);
+    const pool = [...new Set([...stage.exampleWords, ...stage.practiceWords])];
+    const rest = pool.filter((word) => !used.has(word));
+    newWords.push(
+      ...pickWeightedDistinct(rest, desiredNewCount - newWords.length, progressMap, random),
+    );
+  }
   const reviewCount = Math.min(totalCount - newWords.length, reviewPool.length);
   const reviewWords = pickWeightedDistinct(reviewPool, reviewCount, progressMap, random);
 

@@ -120,6 +120,7 @@ export function LessonScreen({
   const sessionStartRef = useRef<Date>(new Date());
   const typedKanaCountRef = useRef(0);
   const sessionSavedRef = useRef(false);
+  const lessonClearedRef = useRef(false);
 
   // 保存済みの音設定を読み込む（IndexedDB が使えない環境では既定値のまま進める）。
   useEffect(() => {
@@ -204,6 +205,15 @@ export function LessonScreen({
       });
   }, [store]);
 
+  const markLessonClearedIfNeeded = useCallback(() => {
+    if (!lessonId || lessonClearedRef.current) return;
+    lessonClearedRef.current = true;
+    void store.markLessonCleared(lessonId).catch(() => {
+      // 保存に失敗しても画面遷移は止めない
+    });
+    onLessonCleared?.(lessonId);
+  }, [lessonId, onLessonCleared, store]);
+
   const handleExitEarly = useCallback(() => {
     saveSessionIfNeeded();
     onFinish();
@@ -212,8 +222,14 @@ export function LessonScreen({
   const scheduleNextWord = useCallback(
     (completedIndex: number) => {
       window.clearTimeout(advanceTimerRef.current);
+      const nextIndex = completedIndex + 1;
+      if (nextIndex >= activePrompts.length) {
+        // 最終問を打ち切った時点でクリアとセッション記録を確定し、
+        // 遷移待ちの間に「おわる」を押しても解放状態が失われないようにする。
+        saveSessionIfNeeded();
+        markLessonClearedIfNeeded();
+      }
       advanceTimerRef.current = window.setTimeout(() => {
-        const nextIndex = completedIndex + 1;
         if (nextIndex < activePrompts.length) {
           hintUsedForKanaRef.current = false;
           stalledForKanaRef.current = false;
@@ -221,18 +237,11 @@ export function LessonScreen({
           setMatcher(createMatcher(activePrompts[nextIndex].text));
           setHintActive(false);
         } else {
-          saveSessionIfNeeded();
-          if (lessonId) {
-            void store.markLessonCleared(lessonId).catch(() => {
-              // 保存に失敗しても画面遷移は止めない
-            });
-            onLessonCleared?.(lessonId);
-          }
           onFinish();
         }
       }, wordTransitionMs);
     },
-    [activePrompts, lessonId, onFinish, onLessonCleared, saveSessionIfNeeded, store, wordTransitionMs],
+    [activePrompts, markLessonClearedIfNeeded, onFinish, saveSessionIfNeeded, wordTransitionMs],
   );
 
   const handleKeyInput = useCallback(

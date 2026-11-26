@@ -92,12 +92,65 @@ describe('レッスン進行とステージ解放（Issue #4）', () => {
     });
   });
 
-  it('途中で「おわる」を押した場合は Stage B が解放されない', async () => {
+  it('最終問を打ち切った直後（遷移タイマー前）に「おわる」を押しても Stage B が解放・永続化される', async () => {
     const store = createTestStore();
     window.localStorage.setItem('typecraft.introSeen', '1');
 
     render(<App store={store} />);
     fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+
+    vi.useFakeTimers();
+    let safety = 0;
+    while (safety < 200) {
+      safety++;
+      const progressText = screen.getByLabelText(/^おだい /).textContent?.trim();
+      const isLastPrompt = progressText === '10 / 10';
+      const key = guidedKeyCode();
+      if (key) {
+        fireEvent.keyDown(window, { key });
+        if (isLastPrompt && screen.queryByText('できた！')) {
+          break;
+        }
+      } else {
+        act(() => {
+          vi.advanceTimersByTime(600);
+        });
+      }
+    }
+
+    // 最終問で「できた！」が表示され、自動遷移（550ms）より前の状態で「おわる」を押す
+    expect(screen.getByText('できた！')).toBeDefined();
+    expect(screen.queryByRole('heading', { level: 1, name: 'またね' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
+    vi.useRealTimers();
+
+    expect(screen.getByRole('heading', { level: 1, name: 'またね' })).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
+
+    const stageBButton = screen.getByRole('button', { name: /^Stage B/ }) as HTMLButtonElement;
+    expect(stageBButton.disabled).toBe(false);
+    expect(screen.getByRole('button', { name: /^Stage A/ }).textContent).toContain('クリア');
+
+    await waitFor(async () => {
+      const cleared = await store.getClearedLessonIds();
+      expect(cleared.has('stage-a')).toBe(true);
+    });
+    const sessions = await store.getSessions();
+    expect(sessions.length).toBe(1);
+    expect(sessions[0].typedKanaCount).toBeGreaterThan(0);
+  });
+
+  it('途中で「おわる」を押した場合は Stage B が解放されない（未入力・入力途中とも）', async () => {
+    const store = createTestStore();
+    window.localStorage.setItem('typecraft.introSeen', '1');
+
+    render(<App store={store} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+
+    // 1問だけ打ってから途中で「おわる」を押す
+    const key = guidedKeyCode();
+    expect(key).not.toBeNull();
+    fireEvent.keyDown(window, { key: key! });
     fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
     fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
 

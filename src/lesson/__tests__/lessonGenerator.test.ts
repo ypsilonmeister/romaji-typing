@@ -89,6 +89,55 @@ describe('generateLesson（スパイラル方式・仕様 v0.3 §4）', () => {
     );
   });
 
+  it('Stage B は 8〜12問のすべての境界問数・複数シードで全導入かな（案内あり）と既習復習（案内なし）を収める', () => {
+    const priorKana = priorKanaBefore('stage-b');
+    for (let promptCount = MIN_LESSON_PROMPTS; promptCount <= MAX_LESSON_PROMPTS; promptCount++) {
+      for (let seed = 1; seed <= 30; seed++) {
+        const lesson = generateLesson('stage-b', { promptCount, random: seededRandom(seed) });
+        expect(lesson.prompts).toHaveLength(promptCount);
+
+        const guidedNewKana = new Set<string>();
+        let reviewCount = 0;
+
+        for (const prompt of lesson.prompts) {
+          expect(
+            isWordAllowedInStage(prompt.text, 'stage-b'),
+            `promptCount=${promptCount}, seed=${seed}, word=${prompt.text}`,
+          ).toBe(true);
+
+          if (prompt.kind === 'new') {
+            expect(prompt.showGuide).toBe(true);
+            for (const unit of splitKana(prompt.text)) {
+              guidedNewKana.add(unit);
+            }
+          } else {
+            reviewCount++;
+            expect(prompt.showGuide).toBe(false);
+            for (const unit of splitKana(prompt.text)) {
+              expect(
+                priorKana.has(unit),
+                `promptCount=${promptCount}, seed=${seed}, review=${prompt.text}, unit=${unit}`,
+              ).toBe(true);
+            }
+          }
+        }
+
+        const expectedMinReview = promptCount === MIN_LESSON_PROMPTS ? 1 : 2;
+        expect(
+          reviewCount,
+          `promptCount=${promptCount}, seed=${seed} の復習問数が不足`,
+        ).toBeGreaterThanOrEqual(expectedMinReview);
+
+        for (const kana of STAGE_B.introducedKana) {
+          expect(
+            guidedNewKana.has(kana),
+            `promptCount=${promptCount}, seed=${seed} で Stage B の導入かな ${kana} が案内ありに含まれない`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
   it('複数シードで生成しても常に各ステージの打てるかな範囲を超えない', () => {
     for (let seed = 1; seed <= 30; seed++) {
       for (const stageId of ['stage-a', 'stage-b'] as const) {
