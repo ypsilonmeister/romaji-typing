@@ -212,6 +212,75 @@ describe('レッスン進行とステージ解放（Issue #4）', () => {
     expect(onFinish).toHaveBeenCalledTimes(1);
   });
 
+  it('Stage A の導入かな1文字を打って終了してもことば図鑑に登録されず、かな進捗のみ記録される', async () => {
+    const store = createTestStore();
+    window.localStorage.setItem('typecraft.introSeen', '1');
+
+    render(<App store={store} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+
+    // 1問目の導入かな「あ」を 'a' で打ち終える
+    expect(guidedKeyCode()).toBe('a');
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(screen.getByText('できた！')).toBeDefined();
+
+    // 「おわる」→「はじめに もどる」→「ことば図鑑」
+    fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
+    fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
+    fireEvent.click(screen.getByRole('button', { name: /ことば図鑑/ }));
+
+    expect(await screen.findByText(/まだ ことばは ありません/)).toBeDefined();
+    expect(screen.queryByText('そのほか')).toBeNull();
+
+    // wordProgress は空のまま、kanaProgress には「あ」が記録されている
+    expect(await store.getWordProgress()).toEqual([]);
+    const kanaProgress = await store.getAllKanaProgress();
+    expect(kanaProgress.find((item) => item.kana === 'あ')?.correctCount).toBe(1);
+  });
+
+  it('Stage A を完走すると単語のお題だけがことば図鑑に登録され、導入かな1文字は登録されない', async () => {
+    const store = createTestStore();
+    window.localStorage.setItem('typecraft.introSeen', '1');
+
+    render(<App store={store} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+
+    vi.useFakeTimers();
+    let safety = 0;
+    while (!screen.queryByRole('heading', { level: 1, name: 'またね' }) && safety < 200) {
+      safety++;
+      const key = guidedKeyCode();
+      if (key) {
+        fireEvent.keyDown(window, { key });
+      } else {
+        act(() => {
+          vi.advanceTimersByTime(600);
+        });
+      }
+    }
+    vi.useRealTimers();
+
+    fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
+    fireEvent.click(screen.getByRole('button', { name: /ことば図鑑/ }));
+
+    await waitFor(async () => {
+      const words = await store.getWordProgress();
+      // Stage A（既定10問）のうち導入かな6問を除いた単語4問が記録される
+      expect(words.length).toBe(4);
+      for (const introKana of ['あ', 'か', 'さ', 'だ', 'が', 'は']) {
+        expect(words.some((w) => w.wordId === introKana)).toBe(false);
+      }
+    });
+
+    // 図鑑画面にも単語カードが表示され、導入かな単独カードは出ない
+    const cards = await screen.findAllByRole('listitem');
+    expect(cards.length).toBe(4);
+    const cardKana = cards.map((el) => el.querySelector('.zukan-kana')?.textContent);
+    for (const introKana of ['あ', 'か', 'さ', 'だ', 'が', 'は']) {
+      expect(cardKana).not.toContain(introKana);
+    }
+  });
+
   it('Stage B の生成レッスンをそのまま LessonScreen に渡すと全問が Stage B の範囲内で進行できる', () => {
     const lesson = generateLesson('stage-b', { random: () => 0.3 });
     for (const prompt of lesson.prompts) {

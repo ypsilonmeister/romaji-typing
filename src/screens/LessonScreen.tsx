@@ -115,6 +115,7 @@ export function LessonScreen({
           text,
           showGuide: true,
           kind: 'new' as const,
+          isWord: true,
         }));
 
   const [wordIndex, setWordIndex] = useState(0);
@@ -312,9 +313,12 @@ export function LessonScreen({
         }
 
         if (isComplete(result.state)) {
-          void store.recordWordTyped(activePrompts[wordIndex].text).catch(() => {
-            // 保存に失敗しても画面の動作は止めない
-          });
+          const completedPrompt = activePrompts[wordIndex];
+          if (completedPrompt.isWord !== false) {
+            void store.recordWordTyped(completedPrompt.text).catch(() => {
+              // 保存に失敗しても画面の動作は止めない
+            });
+          }
           playWordCompleteSound(effectiveVolume);
           scheduleNextWord(wordIndex);
         } else if (result.completed.length > 0) {

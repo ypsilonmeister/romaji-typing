@@ -15,6 +15,8 @@ export interface LessonPrompt {
   readonly showGuide: boolean;
   /** 新規導入か既習の復習か。 */
   readonly kind: 'new' | 'review';
+  /** 単語のお題か（false は導入かな1文字で、ことば図鑑には記録しない）。省略時は true 扱い。 */
+  readonly isWord?: boolean;
 }
 
 export interface GeneratedLesson {
@@ -81,11 +83,11 @@ function pickMinimalCover(
   maxCount: number,
   progressMap: ReadonlyMap<string, KanaProgress>,
   random: () => number,
-): string[] {
+): Array<{ readonly text: string; readonly isWord: boolean }> {
   const pool = [...new Set([...stage.exampleWords, ...stage.practiceWords])];
   const wordUnits = new Map<string, Set<string>>(pool.map((word) => [word, new Set(splitKana(word))]));
   const uncovered = new Set(stage.introducedKana);
-  const picked: string[] = [];
+  const picked: Array<{ readonly text: string; readonly isWord: boolean }> = [];
   const used = new Set<string>();
 
   while (picked.length < maxCount && uncovered.size > 0) {
@@ -131,17 +133,17 @@ function pickMinimalCover(
 
     // 同条件の候補は進捗の重み付きで選ぶ。
     const [chosen] = pickWeightedDistinct(candidates, 1, progressMap, random);
-    picked.push(chosen);
+    picked.push({ text: chosen, isWord: true });
     used.add(chosen);
     for (const unit of wordUnits.get(chosen)!) {
       uncovered.delete(unit);
     }
   }
 
-  // 万一単語だけで未カバーのかなが残れば、単独かなで補う。
+  // 万一単語だけで未カバーのかなが残れば、単独かなで補う（図鑑には記録しない）。
   for (const kana of uncovered) {
     if (picked.length >= maxCount) break;
-    picked.push(kana);
+    picked.push({ text: kana, isWord: false });
   }
 
   return picked;
@@ -216,11 +218,24 @@ export function generateLesson(
     const wordCount = Math.max(0, totalCount - introKana.length);
     const words = pickWeightedDistinct(wordPool, wordCount, progressMap, random);
 
-    const prompts: LessonPrompt[] = [...introKana, ...words].map((text) => ({
-      text,
-      showGuide: true,
-      kind: 'new',
-    }));
+    const prompts: LessonPrompt[] = [
+      ...introKana.map(
+        (text): LessonPrompt => ({
+          text,
+          showGuide: true,
+          kind: 'new',
+          isWord: false,
+        }),
+      ),
+      ...words.map(
+        (text): LessonPrompt => ({
+          text,
+          showGuide: true,
+          kind: 'new',
+          isWord: true,
+        }),
+      ),
+    ];
 
     return { lessonId: stage.id, stage, prompts };
   }
@@ -236,29 +251,33 @@ export function generateLesson(
     reviewPool.length,
     Math.max(2, Math.round(totalCount * 0.25)),
   );
-  const coveringWords = pickMinimalCover(stage, totalCount - minReviewCount, progressMap, random);
-  const desiredNewCount = Math.max(coveringWords.length, totalCount - targetReviewCount);
-  const newWords = [...coveringWords];
-  if (newWords.length < desiredNewCount) {
-    const used = new Set(newWords);
+  const coveringItems = pickMinimalCover(stage, totalCount - minReviewCount, progressMap, random);
+  const desiredNewCount = Math.max(coveringItems.length, totalCount - targetReviewCount);
+  const newItems = [...coveringItems];
+  if (newItems.length < desiredNewCount) {
+    const used = new Set(newItems.map((item) => item.text));
     const pool = [...new Set([...stage.exampleWords, ...stage.practiceWords])];
     const rest = pool.filter((word) => !used.has(word));
-    newWords.push(
-      ...pickWeightedDistinct(rest, desiredNewCount - newWords.length, progressMap, random),
+    newItems.push(
+      ...pickWeightedDistinct(rest, desiredNewCount - newItems.length, progressMap, random).map(
+        (text) => ({ text, isWord: true }),
+      ),
     );
   }
-  const reviewCount = Math.min(totalCount - newWords.length, reviewPool.length);
+  const reviewCount = Math.min(totalCount - newItems.length, reviewPool.length);
   const reviewWords = pickWeightedDistinct(reviewPool, reviewCount, progressMap, random);
 
-  const newPrompts: LessonPrompt[] = newWords.map((text) => ({
+  const newPrompts: LessonPrompt[] = newItems.map(({ text, isWord }) => ({
     text,
     showGuide: true,
     kind: 'new',
+    isWord,
   }));
   const reviewPrompts: LessonPrompt[] = reviewWords.map((text) => ({
     text,
     showGuide: false,
     kind: 'review',
+    isWord: true,
   }));
 
   return {

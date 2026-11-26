@@ -35,6 +35,13 @@ describe('generateLesson（スパイラル方式・仕様 v0.3 §4）', () => {
     for (const kana of STAGE_A.introducedKana) {
       expect(guidedKana.has(kana), `Stage A の新規かな ${kana} が含まれていない`).toBe(true);
     }
+
+    // 導入かな6問は isWord: false、続く単語お題は isWord: true として区別される（仕様 §4・§7）
+    const introPrompts = lesson.prompts.slice(0, STAGE_A.introducedKana.length);
+    const wordPrompts = lesson.prompts.slice(STAGE_A.introducedKana.length);
+    expect(introPrompts.every((p) => p.isWord === false)).toBe(true);
+    expect(wordPrompts.length).toBeGreaterThan(0);
+    expect(wordPrompts.every((p) => p.isWord === true)).toBe(true);
   });
 
   it('Stage B: 8〜12問で新規かなを案内ありで網羅し、既習（Stage A）を案内なしで混ぜる', () => {
