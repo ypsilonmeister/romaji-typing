@@ -145,9 +145,19 @@ describe('レッスン進行とステージ解放（Issue #4）', () => {
     window.localStorage.setItem('typecraft.introSeen', '1');
 
     render(<App store={store} />);
+
+    // 未入力のまま「おわる」を押す
     fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
+    fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
+
+    expect((screen.getByRole('button', { name: /^Stage B/ }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((await store.getClearedLessonIds()).has('stage-a')).toBe(false);
 
     // 1問だけ打ってから途中で「おわる」を押す
+    fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
     const key = guidedKeyCode();
     expect(key).not.toBeNull();
     fireEvent.keyDown(window, { key: key! });
