@@ -18,7 +18,7 @@ export interface AudioLike {
 }
 
 export interface VoicePlayOptions {
-  /** アイドル状態から再生を始めるまでの待機時間（ミリ秒）。完成音との重なりを避けるために使う。 */
+  /** 要求時点から再生開始までの最小待機時間（ミリ秒）。先行音声の終了後も残り時間があれば待機し、完成音との重なりを避ける。 */
   readonly delayMs?: number;
 }
 
@@ -38,9 +38,11 @@ export interface CreateVoicePlayerOptions {
   readonly baseUrl?: string;
   readonly createAudio?: (url: string) => AudioLike | null;
   /**
-   * 再生中に後続リクエストが来たときの最大待機数（既定 3）。
+   * 再生中に後続リクエストが来たときの基準待機上限（既定 3、0 でキュー無効）。
    * 満杯時は古い単語読み上げから破棄する。
-   * 開始・完了・終了の声かけ（milestone）は破棄せず保護し、自己申告（self-report）は待機中の最新1件に集約する。
+   * 例外として、開始・完了・終了の声かけ（milestone）と最新1件の自己申告（self-report）の固定文は
+   * 破棄せず保護するため、破棄できる単語がキューにない状態で固定文が並んだ場合は
+   * maxQueueSize（>= 1）を超えて待機することがある。
    */
   readonly maxQueueSize?: number;
 }
@@ -50,6 +52,7 @@ type QueueKind = 'milestone' | 'self-report' | 'word';
 interface QueueEntry {
   readonly url: string;
   readonly kind: QueueKind;
+  readonly notBefore: number;
 }
 
 const DEFAULT_MAX_QUEUE_SIZE = 3;
@@ -83,7 +86,8 @@ function defaultCreateAudio(url: string): AudioLike | null {
  * - 未登録キーや空パスは無音で素通りし、例外を投げない。
  * - 再生中に次の読み上げが来た場合は重ねず、再生中の終端（ended / error）まで待ってから順に再生する。
  * - 待機キュー満杯時は古い単語読み上げから破棄する。開始・完了・終了の声かけは破棄せず保護し、
- *   待機中の自己申告は最新1件で置き換える。
+ *   待機中の自己申告は最新1件で置き換える（破棄できる単語がない場合は固定文保護を優先し、
+ *   maxQueueSize >= 1 の範囲で上限を超えて待機することがある）。
  * - ファイル読み込み失敗や自動再生制限（play() の reject）でもエラーにせず次へ進める。
  */
 export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): VoicePlayer {
@@ -109,10 +113,22 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
     currentAudio = null;
   }
 
+  function scheduleOrStart(url: string, delayMs: number): void {
+    if (delayMs > 0) {
+      pendingTimer = setTimeout(() => {
+        pendingTimer = null;
+        startPlayback(url);
+      }, delayMs);
+    } else {
+      startPlayback(url);
+    }
+  }
+
   function advanceQueue(): void {
     while (queue.length > 0 && !isBusy()) {
       const next = queue.shift()!;
-      startPlayback(next.url);
+      const remainingMs = next.notBefore > 0 ? Math.max(0, next.notBefore - Date.now()) : 0;
+      scheduleOrStart(next.url, remainingMs);
     }
   }
 
@@ -172,23 +188,18 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
   ): boolean {
     if (!path || path.trim().length === 0) return false;
     const url = resolveVoiceUrl(path, baseUrl);
+    const delayMs = Math.max(0, playOptions?.delayMs ?? 0);
 
     if (!isBusy()) {
-      const delayMs = Math.max(0, playOptions?.delayMs ?? 0);
-      if (delayMs > 0) {
-        pendingTimer = setTimeout(() => {
-          pendingTimer = null;
-          startPlayback(url);
-        }, delayMs);
-      } else {
-        startPlayback(url);
-      }
+      scheduleOrStart(url, delayMs);
       return true;
     }
 
     if (maxQueueSize === 0) {
       return false;
     }
+
+    const notBefore = delayMs > 0 ? Date.now() + delayMs : 0;
 
     if (kind === 'self-report') {
       // 待機中の自己申告がすでにあれば最新の選択で置き換え、完了・終了の声かけを押し出さない。
@@ -198,7 +209,7 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
       } else if (queue.length >= maxQueueSize) {
         evictOldestWord();
       }
-      queue.push({ url, kind });
+      queue.push({ url, kind, notBefore });
       return true;
     }
 
@@ -207,7 +218,7 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
       if (queue.length >= maxQueueSize) {
         evictOldestWord();
       }
-      queue.push({ url, kind });
+      queue.push({ url, kind, notBefore });
       return true;
     }
 
@@ -217,7 +228,7 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
         return false;
       }
     }
-    queue.push({ url, kind });
+    queue.push({ url, kind, notBefore });
     return true;
   }
 

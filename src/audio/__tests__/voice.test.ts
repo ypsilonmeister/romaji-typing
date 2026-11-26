@@ -406,4 +406,102 @@ describe('createVoicePlayer', () => {
     vi.advanceTimersByTime(1000);
     expect(created).toHaveLength(0);
   });
+
+  it('先行音声の再生中に delayMs 付きでキューに入った要求は、先行音声終了後も残り時間を待ってから再生する', () => {
+    vi.useFakeTimers();
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    expect(player.playPhrase('lesson-start')).toBe(true);
+    expect(player.playWord('あさ', { delayMs: 420 })).toBe(true);
+    expect(player.playPhrase('lesson-clear', { delayMs: 420 })).toBe(true);
+
+    // 1 ms 後に先行音声が終了しても、残り 419 ms は再生しない
+    vi.advanceTimersByTime(1);
+    created[0].emit('ended');
+    expect(created).toHaveLength(1);
+    expect(player.isPlaying()).toBe(false);
+
+    vi.advanceTimersByTime(418);
+    expect(created).toHaveLength(1);
+
+    // 要求時点からちょうど 420 ms 経過したタイミングで再生を開始する
+    vi.advanceTimersByTime(1);
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+    ]);
+
+    // すでに 420 ms を過ぎている後続の lesson-clear は追加待機なしで即時再生される
+    created[1].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+  });
+
+  it('先行音声が delayMs より長く再生された場合は、終了後に追加待機せず即座に再生する', () => {
+    vi.useFakeTimers();
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    player.playPhrase('lesson-start');
+    player.playWord('あさ', { delayMs: 420 });
+
+    vi.advanceTimersByTime(500);
+    created[0].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+    ]);
+  });
+
+  it('破棄できる単語がキューにない場合は、固定文保護のため maxQueueSize を超えても待機を保持する', () => {
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      maxQueueSize: 3,
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    player.playWord('あさ');
+    player.playPhrase('lesson-start');
+    player.playPhrase('lesson-clear');
+    player.playPhrase('session-end');
+    player.playPhrase('self-report-good');
+
+    for (let i = 0; i < 4; i++) {
+      created[i].emit('ended');
+    }
+
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+      '/audio/phrases/session-end.mp3',
+      '/audio/phrases/self-report-good.mp3',
+    ]);
+  });
 });

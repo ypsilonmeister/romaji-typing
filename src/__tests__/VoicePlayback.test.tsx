@@ -215,6 +215,65 @@ describe('レッスン画面の音声再生（Issue #13）', () => {
     ]);
   });
 
+  it('先行音声の再生中に単語を完成しても、先行音声終了後に完成音の残り時間だけ待ってから読み上げを開始する', async () => {
+    const wordCompleteSpy = vi.spyOn(sound, 'playWordCompleteSound');
+    const { player, audios } = createTestVoicePlayer();
+
+    render(
+      <LessonScreen
+        mode="stage"
+        words={['あさ']}
+        wordTransitionMs={500}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    // lesson-start が再生中のまま維持する
+    await waitFor(() => {
+      expect(audios.map((a) => a.src)).toEqual(['/audio/phrases/lesson-start.mp3']);
+    });
+
+    vi.useFakeTimers();
+
+    // 効果音 ON の1問レッスンで、lesson-start 再生中のまま「あさ」を完成させる
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(wordCompleteSpy).toHaveBeenCalledTimes(1);
+    expect(audios).toHaveLength(1);
+
+    // 完成音を要求してから 1 ms 後に開始音声の ended を発火させても、その場では読み上げを始めない
+    act(() => {
+      vi.advanceTimersByTime(1);
+      audios[0].finish();
+    });
+    expect(audios).toHaveLength(1);
+
+    // 完成音の終了直前（残り 1 ms）までは待機を続ける
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS - 2);
+    });
+    expect(audios).toHaveLength(1);
+
+    // 完成音からちょうど 420 ms 経過したタイミングで単語読み上げが始まる
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(audios.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+    ]);
+
+    // 単語読み上げ終了後はすでに完成音が終わっているため、lesson-clear が即座に再生される
+    audios[1].finish();
+    expect(audios.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+  });
+
   it('音声の再生中は打鍵音の音量を下げて重なりを抑える', async () => {
     const keySoundSpy = vi.spyOn(sound, 'playKeySound');
     const { player, audios } = createTestVoicePlayer();
