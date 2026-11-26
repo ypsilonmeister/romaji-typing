@@ -1,4 +1,36 @@
 {
-  "phrases": {},
-  "words": {}
+  "phrases": {
+    "lesson-start": "audio/phrases/lesson-start.mp3",
+    "lesson-clear": "audio/phrases/lesson-clear.mp3",
+    "session-end": "audio/phrases/session-end.mp3",
+    "self-report-good": "audio/phrases/self-report-good.mp3",
+    "self-report-ok": "audio/phrases/self-report-ok.mp3",
+    "self-report-tired": "audio/phrases/self-report-tired.mp3",
+    "self-report-skip": "audio/phrases/self-report-skip.mp3"
+  },
+  "words": {
+    "あさ": "audio/words/asa.mp3",
+    "かさ": "audio/words/kasa.mp3",
+    "はは": "audio/words/haha.mp3",
+    "さか": "audio/words/saka.mp3",
+    "あか": "audio/words/aka.mp3",
+    "はだ": "audio/words/hada.mp3",
+    "さが": "audio/words/saga.mp3",
+    "いえ": "audio/words/ie.mp3",
+    "かい": "audio/words/kai.mp3",
+    "しか": "audio/words/shika.mp3",
+    "せかい": "audio/words/sekai.mp3",
+    "はし": "audio/words/hashi.mp3",
+    "えき": "audio/words/eki.mp3",
+    "けしき": "audio/words/keshiki.mp3",
+    "かげ": "audio/words/kage.mp3",
+    "ひげ": "audio/words/hige.mp3",
+    "かぎ": "audio/words/kagi.mp3",
+    "きじ": "audio/words/kiji.mp3",
+    "かえで": "audio/words/kaede.mp3",
+    "へい": "audio/words/hei.mp3",
+    "あさひ": "audio/words/asahi.mp3",
+    "いけ": "audio/words/ike.mp3",
+    "がけ": "audio/words/gake.mp3"
+  }
 }
