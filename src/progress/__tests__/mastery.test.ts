@@ -57,8 +57,14 @@ describe('定着の判定', () => {
     expect(kanaStatus(after(clean, clean, guided))).toBe('learning');
   });
 
-  it('案内ありの正解をはさんでも、案内なしの連続は切れない', () => {
-    expect(kanaStatus(after(clean, clean, guided, clean))).toBe('mastered');
+  it('案内ありの正解で連続が切れ、そこから3回必要になる', () => {
+    expect(kanaStatus(after(clean, clean, guided, clean))).toBe('learning');
+    expect(kanaStatus(after(clean, clean, guided, clean, clean))).toBe('learning');
+    expect(kanaStatus(after(clean, clean, guided, clean, clean, clean))).toBe('mastered');
+  });
+
+  it('定着した後でも、案内ありの正解で定着から外れる', () => {
+    expect(kanaStatus(after(clean, clean, clean, guided))).toBe('learning');
   });
 
   it.each([

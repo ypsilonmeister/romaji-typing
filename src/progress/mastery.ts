@@ -34,7 +34,9 @@ export interface KanaAttempt {
  *
  * - 詰まった: 定着の連続回数を 0 に戻し、詰まりの連続回数を増やす。
  * - 案内なしで詰まらず打てた: 定着の連続回数を増やし、詰まりの連続回数を 0 に戻す。
- * - 案内ありで詰まらず打てた: 詰まりの連続回数だけを 0 に戻す。定着の連続回数は増やしも戻しもしない。
+ * - 案内ありで詰まらず打てた: 定着の連続回数と詰まりの連続回数を 0 に戻す。
+ *
+ * そのため定着は、直近の MASTERY_STREAK 回がすべて「案内なしで詰まらず打てた」かなだけになる。
  */
 export function applyKanaAttempt(
   previous: KanaProgress | undefined,
@@ -43,13 +45,12 @@ export function applyKanaAttempt(
   practicedAt: Date,
 ): KanaProgress {
   const stuck = attempt.hintUsed || attempt.stalled;
-  const streak = previous?.unguidedStreak ?? 0;
   return {
     kana,
     correctCount: (previous?.correctCount ?? 0) + 1,
     hintCount: (previous?.hintCount ?? 0) + (stuck ? 1 : 0),
     lastPracticedAt: practicedAt,
-    unguidedStreak: stuck ? 0 : attempt.guided ? streak : streak + 1,
+    unguidedStreak: stuck || attempt.guided ? 0 : (previous?.unguidedStreak ?? 0) + 1,
     stuckStreak: stuck ? (previous?.stuckStreak ?? 0) + 1 : 0,
   };
 }
