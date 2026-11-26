@@ -1,7 +1,7 @@
 // かな→ローマ字の照合（仕様 v0.3 詳細仕様 §2）。DOM に依存しない純粋な状態機械。
 // 状態は書き換えず、操作のたびに新しい状態を返す。
 
-import { spellingsOf } from './romajiTable';
+import { allowsSingleN, recommendedSpelling, SINGLE_N, spellingsOf } from './romajiTable';
 
 /** 現在のかなに対する打ち方の1つ。 */
 export interface Option {
@@ -38,25 +38,25 @@ export interface MatcherState {
   readonly completed: readonly CompletedKana[];
   /** 詰まりの検出用（§2.4）。画面には出さない。 */
   readonly mistakeCount: number;
-  /** 語末の「ん」を n 1つで完成させた直後。続く n を1つだけ受け流す。 */
+  /** 語末の「ん」を n 1つで完成させた後で、まだ受け流せる n が残っている。 */
   readonly absorbableN: boolean;
 }
 
 export interface KeyResult {
   readonly state: MatcherState;
+  /** 入力として受け付けた。true になるのは、キー（小文字化後）が直前の nextKeys にある場合だけ。 */
   readonly accepted: boolean;
+  /**
+   * 語末の「ん」を n 1つで完成させた後の、余分な n を受け流した。
+   * 入力ではないので accepted は false。ミスにも数えないので、画面はミスの表示を出さない。
+   */
+  readonly absorbed: boolean;
   /** このキーで完成したかな。促音や「ん」では、前のかなと今のかなが同時に入ることがある。 */
   readonly completed: readonly CompletedKana[];
 }
 
-/** 「ん」の直後がこれらで始まる場合は nn が必要（§2.3 の母音・や行・ら行・わ行・な行・ん）。 */
-const NEEDS_DOUBLE_N = new Set('あいうえおやゆよらりるれろわをなにぬねのん');
-
 /** 促音で重ねられない先頭文字。母音と n（nn は「ん」）、小さいかなの x・l 接頭辞。 */
 const NOT_DOUBLABLE = new Set('aiueonxl');
-
-/** 単独の綴り（x・l 接頭辞）を案内に出さないかな（§1.4）。 */
-const UNGUIDED_ALONE = new Set('っゃゅょ');
 
 /** かなの打ち始めになりうるキー。推奨の打ち方があれば、そのキーが先。 */
 function firstKeys(unit: Unit): string[] {
@@ -66,16 +66,12 @@ function firstKeys(unit: Unit): string[] {
 function buildUnit(kana: string, next: Unit | undefined, isOnlyUnit: boolean): Unit {
   const spellings = spellingsOf(kana);
   if (!spellings) throw new Error(`対応表にないかなです: ${kana}`);
-  const acceptOnly = UNGUIDED_ALONE.has(kana);
+  const acceptOnly = recommendedSpelling(kana) === undefined;
   const options: Option[] = spellings.map((romaji) => ({ romaji, acceptOnly }));
 
-  if (kana === 'ん') {
-    if (!next) {
-      // 語末は n 1つで確定。単独の「ん」は nn のみ（§2.3）。
-      if (!isOnlyUnit) options.push({ romaji: 'n' });
-    } else if (!NEEDS_DOUBLE_N.has(next.kana[0])) {
-      options.push({ romaji: 'n', followers: firstKeys(next) });
-    }
+  if (kana === 'ん' && allowsSingleN(next?.kana, isOnlyUnit)) {
+    // 語末は n を打った時点で確定し、語中は次のかなの1打目で確定する。
+    options.push({ romaji: SINGLE_N, followers: next && firstKeys(next) });
   }
 
   if (kana === 'っ' && next) {
@@ -126,8 +122,8 @@ export function candidates(state: MatcherState): readonly Option[] {
 }
 
 /**
- * 入力中のかなとして受け付けるキー（案内の優先順）。案内の表示には guideKey を使う。
- * 完成後は空（語末の「ん」の直後に受け流す n は含まない）。
+ * 受け付けるキー（案内の優先順）。pressKey の accepted が true になるキーと一致する。
+ * 案内の表示には guideKey を使う。完成後は空（受け流す n は入力ではないので含まない）。
  */
 export function nextKeys(state: MatcherState): string[] {
   const keys = candidates(state).flatMap((option) =>
@@ -155,6 +151,7 @@ function completeCurrent(state: MatcherState, romaji: string): KeyResult {
   const index = state.index + 1;
   return {
     accepted: true,
+    absorbed: false,
     completed: [done],
     state: {
       ...state,
@@ -169,16 +166,17 @@ function completeCurrent(state: MatcherState, romaji: string): KeyResult {
 /**
  * キーを1つ入力する。key は KeyboardEvent.key をそのまま渡せる（大文字小文字は区別しない）。
  * Shift などの1文字でないキーと、完成後のキーは、受け付けないがミスにも数えない。
+ * 語末の「ん」を n 1つで完成させた場合は、その後の最初の n を1つだけ absorbed として返す。
  * 合わないキーは受け付けず、候補を保ったままミスを数える（§2.4）。
  */
 export function pressKey(state: MatcherState, key: string): KeyResult {
-  const ignored: KeyResult = { state, accepted: false, completed: [] };
+  const ignored: KeyResult = { state, accepted: false, absorbed: false, completed: [] };
   if (key.length !== 1) return ignored;
   const char = key.toLowerCase();
 
   if (isComplete(state)) {
     if (!state.absorbableN || char !== 'n') return ignored;
-    return { state: { ...state, absorbableN: false }, accepted: true, completed: [] };
+    return { ...ignored, absorbed: true, state: { ...state, absorbableN: false } };
   }
 
   const { options } = state.units[state.index];
@@ -188,7 +186,7 @@ export function pressKey(state: MatcherState, key: string): KeyResult {
     if (options.some((option) => !option.followers && option.romaji === typed)) {
       return completeCurrent(state, typed);
     }
-    return { state: { ...state, typed }, accepted: true, completed: [] };
+    return { state: { ...state, typed }, accepted: true, absorbed: false, completed: [] };
   }
 
   const carried = options.some(

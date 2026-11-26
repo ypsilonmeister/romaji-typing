@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { ROMAJI_TABLE, spellingsOf } from '../romajiTable';
+import { allowsSingleN, recommendedSpelling, ROMAJI_TABLE, spellingsOf } from '../romajiTable';
 
 const words = (text: string) => text.trim().split(/\s+/);
 
@@ -23,9 +23,18 @@ describe('対応表の網羅', () => {
     expect(Object.keys(ROMAJI_TABLE).sort()).toEqual([...all].sort());
   });
 
-  it.each(all)('%s に推奨綴りがあり、綴りは英小文字で重複しない', (kana) => {
+  it.each(all.filter((kana) => !SPECIAL.includes(kana)))('%s に推奨綴りがある', (kana) => {
+    expect(recommendedSpelling(kana)).toBe(ROMAJI_TABLE[kana][0]);
+  });
+
+  // §1.4: 単独の綴りは受け付けるが案内には出さない。
+  it.each(SPECIAL)('%s は許容綴りだけで、推奨綴りがない', (kana) => {
+    expect(recommendedSpelling(kana)).toBeUndefined();
+    expect(spellingsOf(kana)!.length).toBeGreaterThan(0);
+  });
+
+  it.each(all)('%s の綴りは英小文字で重複しない', (kana) => {
     const spellings = spellingsOf(kana)!;
-    expect(spellings[0]).toBe(ROMAJI_TABLE[kana][0]);
     expect(spellings.every((s) => /^[a-z]+$/.test(s))).toBe(true);
     expect(new Set(spellings).size).toBe(spellings.length);
   });
@@ -60,6 +69,27 @@ describe('仕様 §1 の綴り', () => {
       じょ: ['jo', 'jyo', 'zyo'],
       ぢゃ: ['ja', 'dya'],
     });
+  });
+
+  // §2.3: 「ん」の n は、次のかなによって受け付ける。
+  it.each([...'あいうえおやゆよらりるれろわをなにぬねのん', 'にゃ', 'りゅ'])(
+    '次が「%s」の「ん」は n 1つを受け付けない',
+    (next) => {
+      expect(allowsSingleN(next, false)).toBe(false);
+    },
+  );
+
+  it.each(['か', 'さ', 'ぱ', 'きゃ', 'っ', 'ゃ'])('次が「%s」の「ん」は n 1つも受け付ける', (next) => {
+    expect(allowsSingleN(next, false)).toBe(true);
+  });
+
+  it('語末の「ん」は n 1つを受け付け、単独の「ん」は受け付けない', () => {
+    expect(allowsSingleN(undefined, false)).toBe(true);
+    expect(allowsSingleN(undefined, true)).toBe(false);
+  });
+
+  it.each(['', 'ア', 'toString'])('表にない「%s」の推奨綴りは undefined', (kana) => {
+    expect(recommendedSpelling(kana)).toBeUndefined();
   });
 
   it('拗音は分け打ちも持つ', () => {

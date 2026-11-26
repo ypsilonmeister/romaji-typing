@@ -130,18 +130,13 @@ describe('間違いキー', () => {
 
   it.each(['Shift', 'Enter', 'Backspace', ''])('「%s」は無視してミスに数えない', (key) => {
     const state = createMatcher('あ');
-    expect(pressKey(state, key)).toEqual({ state, accepted: false, completed: [] });
+    expect(pressKey(state, key)).toEqual({ state, accepted: false, absorbed: false, completed: [] });
   });
 
   it('大文字でも受け付ける', () => {
     expectCompletes('か', 'KA');
   });
 
-  it('完成後のキーは無視する', () => {
-    const done = type('あ', 'a');
-    expect(pressKey(done, 'a')).toEqual({ state: done, accepted: false, completed: [] });
-    expect(pressKey(done, 'n').accepted).toBe(false);
-  });
 });
 
 describe('Backspace', () => {
@@ -242,17 +237,60 @@ describe('「ん」の確定条件', () => {
     expect(type('みかん', 'mikan').completed.slice(-1)[0]).toEqual({ kana: 'ん', romaji: 'n' });
   });
 
-  it('語末で続けて打った2つ目の n は、1つだけミスなしで受け流す', () => {
-    const second = pressKey(type('みかん', 'mikan'), 'n');
-    expect(second).toMatchObject({ accepted: true, completed: [] });
-    expect(second.state).toMatchObject({ mistakeCount: 0, absorbableN: false });
-    expect(isComplete(second.state)).toBe(true);
-    expect(pressKey(second.state, 'n').accepted).toBe(false);
-  });
-
   it('単独の「ん」は nn のみ', () => {
     expect(isComplete(type('ん', 'n'))).toBe(false);
     expectCompletes('ん', 'nn');
+  });
+});
+
+describe('完成後のキー', () => {
+  const keys = [...'abcdefghijklmnopqrstuvwxyzN', 'Shift', '1'];
+
+  it.each([
+    ['みかん', 'mikan'],
+    ['あ', 'a'],
+    ['ん', 'nn'],
+  ])('%s を %s で完成させた後は、次のキーも案内もなく、どのキーも accepted にならない', (word, typed) => {
+    const done = type(word, typed);
+    expect(isComplete(done)).toBe(true);
+    expect(nextKeys(done)).toEqual([]);
+    expect(guideKey(done)).toBeUndefined();
+    for (const key of keys) {
+      const result = pressKey(done, key);
+      expect(result, key).toMatchObject({ accepted: false, completed: [] });
+      expect(result.state.mistakeCount, key).toBe(0);
+    }
+  });
+
+  it.each(['n', 'N'])('語末の「ん」を n 1つで完成させた後の %s は、受け流しとして返す', (key) => {
+    const done = type('みかん', 'mikan');
+    const result = pressKey(done, key);
+    expect(result).toEqual({
+      state: { ...done, absorbableN: false },
+      accepted: false,
+      absorbed: true,
+      completed: [],
+    });
+  });
+
+  it('受け流すのは1つだけ', () => {
+    const once = type('みかん', 'mikann');
+    expect(pressKey(once, 'n')).toEqual({ state: once, accepted: false, absorbed: false, completed: [] });
+  });
+
+  it('間にほかのキーを挟んでも、最初の n を受け流す', () => {
+    expect(pressKey(type('みかん', 'mikana'), 'n').absorbed).toBe(true);
+  });
+
+  it.each([
+    ['あ', 'a'],
+    ['ん', 'nn'],
+  ])('%s を %s で完成させた後の n は受け流さない', (word, typed) => {
+    expect(pressKey(type(word, typed), 'n').absorbed).toBe(false);
+  });
+
+  it('完成前の受理は absorbed にならない', () => {
+    expect(pressKey(createMatcher('な'), 'n')).toMatchObject({ accepted: true, absorbed: false });
   });
 });
 
@@ -314,9 +352,17 @@ describe('案内の追従', () => {
     expect(guideWhileTyping('し', 'shi')).toEqual(['s', 'h', 'i']);
   });
 
+  // §2.2: 打ち始めが共通の間は、推奨綴りに沿う。
   it('し: s の時点では推奨の h を案内し、i も受け付ける', () => {
-    expect(nextKeys(type('し', 's'))).toEqual(['h', 'i']);
+    const state = type('し', 's');
+    expect(guideKey(state)).toBe('h');
+    expect(nextKeys(state)).toEqual(['h', 'i']);
     expectCompletes('し', 'si');
+  });
+
+  it('ち: t と打ち始めた時点で別綴りに決まるので、次は i を案内する', () => {
+    expect(guideKey(type('ち', 't'))).toBe('i');
+    expect(nextKeys(type('ち', 't'))).toEqual(['i']);
   });
 
   it.each([
@@ -450,7 +496,7 @@ describe('仕様 §5 の単語', () => {
 
 describe('全項目の2つ組の連結', () => {
   // 項目を連結した文字列なので、き＋ゃ のように拗音1単位になる組も含む。
-  it('2項目を連結した文字列で、完成前は nextKeys と受理が一致し、行き止まりがない', () => {
+  it('2項目を連結した文字列の全到達状態で、accepted と nextKeys が一致し、行き止まりがない', () => {
     const kana = Object.keys(ROMAJI_TABLE);
     const alphabet = [...'abcdefghijklmnopqrstuvwxyz'];
     const failures: string[] = [];
@@ -461,11 +507,14 @@ describe('全項目の2つ組の連結', () => {
         const seen = new Set<string>();
         while (stack.length > 0) {
           const state = stack.pop()!;
-          const id = `${state.index}:${state.typed}`;
-          if (seen.has(id) || isComplete(state)) continue;
+          const id = `${state.index}:${state.typed}:${state.absorbableN}`;
+          if (seen.has(id)) continue;
           seen.add(id);
           const guided = nextKeys(state);
-          if (guided.length === 0) failures.push(`${first}${second} 行き止まり ${id}`);
+          // 次のキーがないのは、完成後だけ。
+          if ((guided.length === 0) !== isComplete(state)) {
+            failures.push(`${first}${second} 次のキーの有無 ${id}`);
+          }
           const guide = guideKey(state);
           if (guide !== undefined && !guided.includes(guide)) {
             failures.push(`${first}${second} ${id} 受け付けない案内 ${guide}`);
@@ -475,7 +524,10 @@ describe('全項目の2つ組の連結', () => {
             if (result.accepted !== guided.includes(key)) {
               failures.push(`${first}${second} ${id} + ${key}`);
             }
-            if (result.accepted) stack.push(result.state);
+            if (result.absorbed !== (state.absorbableN && key === 'n')) {
+              failures.push(`${first}${second} ${id} + ${key} 受け流し`);
+            }
+            if (result.accepted || result.absorbed) stack.push(result.state);
           }
         }
       }
