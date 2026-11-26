@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { voicePlayer, type VoicePlayer } from './audio/voice';
 import { hasSeenIntro, markIntroSeen } from './introStorage';
 import { generateLesson, nextRecommendedStage, type StageId } from './lesson';
 import { progressStore, type KanaProgress, type ProgressStore } from './progress';
@@ -12,9 +13,10 @@ import { ZukanScreen } from './screens/ZukanScreen';
 
 export interface AppProps {
   readonly store?: ProgressStore;
+  readonly voice?: VoicePlayer;
 }
 
-export function App({ store = progressStore }: AppProps = {}) {
+export function App({ store = progressStore, voice = voicePlayer }: AppProps = {}) {
   const [screen, setScreen] = useState<Screen>(() => ({ name: hasSeenIntro() ? 'menu' : 'intro' }));
   const [clearedLessonIds, setClearedLessonIds] = useState<ReadonlySet<string>>(() => new Set());
   const [kanaProgress, setKanaProgress] = useState<readonly KanaProgress[]>([]);
@@ -121,6 +123,7 @@ export function App({ store = progressStore }: AppProps = {}) {
               : undefined
           }
           store={store}
+          voice={voice}
           onLessonCleared={handleLessonCleared}
           onFinish={(sessionIdPromise) => setScreen({ name: 'end', sessionIdPromise })}
         />
@@ -131,11 +134,12 @@ export function App({ store = progressStore }: AppProps = {}) {
           sessionIdPromise={screen.sessionIdPromise}
           onBackToStart={toMenu}
           store={store}
+          voice={voice}
         />
       );
     case 'zukan':
       return <ZukanScreen onBack={toMenu} store={store} />;
     case 'parentGate':
-      return <ParentGateScreen onBack={toMenu} store={store} />;
+      return <ParentGateScreen onBack={toMenu} store={store} voice={voice} />;
   }
 }

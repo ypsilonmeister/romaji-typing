@@ -86,6 +86,9 @@ export function playKanaCompleteSound(volume: number): void {
   );
 }
 
+/** お題（単語）完成音（playWordCompleteSound）の再生時間（ミリ秒）。読み上げとの重なり回避に使う。 */
+export const WORD_COMPLETE_SOUND_DURATION_MS = 420;
+
 /** お題（単語）が完成したときの小さなフレーズ。 */
 export function playWordCompleteSound(volume: number): void {
   playSequence(

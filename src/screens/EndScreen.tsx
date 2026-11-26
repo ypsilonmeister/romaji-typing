@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { voicePlayer, type VoicePlayer } from '../audio/voice';
+import { SELF_REPORT_VOICE_KEYS } from '../audio/voiceManifest';
 import {
   DEFAULT_SETTINGS,
   progressStore,
@@ -11,6 +13,7 @@ export interface EndScreenProps {
   sessionIdPromise?: Promise<number | undefined>;
   store?: Pick<ProgressStore, 'getSettings'> &
     Partial<Pick<ProgressStore, 'updateSessionSelfReport'>>;
+  voice?: VoicePlayer;
 }
 
 const SELF_REPORT_OPTIONS: readonly { readonly value: SelfReport; readonly label: string }[] = [
@@ -29,25 +32,41 @@ export function EndScreen({
   onBackToStart,
   sessionIdPromise,
   store = progressStore,
+  voice = voicePlayer,
 }: EndScreenProps) {
   const [selfReportOn, setSelfReportOn] = useState(DEFAULT_SETTINGS.selfReportOn);
   const [sessionId, setSessionId] = useState<number | undefined>(undefined);
   const [selected, setSelected] = useState<SelfReport | null>(null);
+  // 保存済みの音声設定を読み込み終えるまでは発火を抑止する（OFF 保存時の誤再生防止）。
+  const voiceOnRef = useRef(false);
+  const endVoicePlayedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     store
       .getSettings()
       .then((settings) => {
-        if (active) setSelfReportOn(settings.selfReportOn);
+        if (!active) return;
+        setSelfReportOn(settings.selfReportOn);
+        voiceOnRef.current = settings.voiceOn;
+        if (settings.voiceOn && !endVoicePlayedRef.current) {
+          endVoicePlayedRef.current = true;
+          voice.playPhrase('session-end');
+        }
       })
       .catch(() => {
-        // IndexedDB が使えない環境では初期値（OFF）のまま進める
+        if (!active) return;
+        // IndexedDB が使えない環境では既定値のまま進める
+        voiceOnRef.current = DEFAULT_SETTINGS.voiceOn;
+        if (DEFAULT_SETTINGS.voiceOn && !endVoicePlayedRef.current) {
+          endVoicePlayedRef.current = true;
+          voice.playPhrase('session-end');
+        }
       });
     return () => {
       active = false;
     };
-  }, [store]);
+  }, [store, voice]);
 
   useEffect(() => {
     let active = true;
@@ -72,6 +91,9 @@ export function EndScreen({
 
   const handleSelect = (value: SelfReport) => {
     setSelected(value);
+    if (voiceOnRef.current) {
+      voice.playPhrase(SELF_REPORT_VOICE_KEYS[value]);
+    }
     if (sessionId === undefined || !store.updateSessionSelfReport) return;
     void store.updateSessionSelfReport(sessionId, value).catch(() => {
       // 保存に失敗しても画面の動作は止めない

@@ -156,6 +156,7 @@ describe('設定', () => {
     expect(await store.getSettings()).toEqual({
       soundOn: true,
       soundVolume: 0.5,
+      voiceOn: true,
       selfReportOn: false,
     });
     await store.close();
@@ -166,11 +167,13 @@ describe('設定', () => {
     await Promise.all([
       store.updateSettings({ soundOn: false }),
       store.updateSettings({ soundVolume: 0.8 }),
+      store.updateSettings({ voiceOn: false }),
       store.updateSettings({ selfReportOn: true }),
     ]);
     expect(await store.getSettings()).toEqual({
       soundOn: false,
       soundVolume: 0.8,
+      voiceOn: false,
       selfReportOn: true,
     });
     await store.close();

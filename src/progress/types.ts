@@ -45,6 +45,8 @@ export interface Settings {
   soundOn: boolean;
   /** 0（無音）〜1（最大）。 */
   soundVolume: number;
+  /** 音声（声かけ・単語の読み上げ）を鳴らすか。初期は ON（Issue #13）。 */
+  voiceOn: boolean;
   /** 終了画面で本人の自己申告「きょうは どうだった？」を表示するか。初期は OFF（仕様 v0.3 §7）。 */
   selfReportOn: boolean;
 }

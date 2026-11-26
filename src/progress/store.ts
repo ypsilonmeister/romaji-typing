@@ -8,6 +8,7 @@ import type { KanaProgress, SelfReport, SessionRecord, Settings, WordProgress } 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
   soundOn: true,
   soundVolume: 0.5,
+  voiceOn: true,
   selfReportOn: false,
 };
 
