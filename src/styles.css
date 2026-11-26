@@ -408,12 +408,40 @@ button:focus-visible {
 .lesson-typed-shake {
   border-color: var(--finger-pinky);
   background: #fff7fa;
+}
+
+.lesson-typed-shake-a {
   @media (prefers-reduced-motion: no-preference) {
-    animation: gentle-shake 0.3s ease-in-out;
+    animation: gentle-shake-a 0.3s ease-in-out;
   }
 }
 
-@keyframes gentle-shake {
+.lesson-typed-shake-b {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: gentle-shake-b 0.3s ease-in-out;
+  }
+}
+
+@keyframes gentle-shake-a {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  45% {
+    transform: translateX(6px);
+  }
+  70% {
+    transform: translateX(-4px);
+  }
+  88% {
+    transform: translateX(3px);
+  }
+}
+
+@keyframes gentle-shake-b {
   0%,
   100% {
     transform: translateX(0);

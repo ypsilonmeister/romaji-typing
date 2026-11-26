@@ -235,4 +235,95 @@ describe('LessonScreen', () => {
     fireEvent.click(keyButton('a'));
     expect(screen.getByText('できた！')).toBeDefined();
   });
+
+  it('推奨キーのない特殊かな（単独の「ゃ」や促音）では入力前に x/l を強調せず、打ち始め後に追従する', () => {
+    render(<LessonScreen mode="stage" words={['ゃ']} onFinish={vi.fn()} />);
+
+    expect(keyButton('x').dataset.guide).toBeUndefined();
+    expect(keyButton('l').dataset.guide).toBeUndefined();
+    expect(keyButton('x').className).not.toContain('kb-key-alt');
+    expect(keyButton('l').className).not.toContain('kb-key-alt');
+
+    // 手動ヒントを押しても x/l の候補強調は出ない
+    fireEvent.click(screen.getByRole('button', { name: 'ヒント' }));
+    expect(keyButton('x').className).not.toContain('kb-key-alt');
+    expect(keyButton('l').className).not.toContain('kb-key-alt');
+
+    // x を打ち始めると y と右人差し指に追従する
+    fireEvent.keyDown(window, { key: 'x' });
+    expect(keyButton('y').dataset.guide).toBe('true');
+    expect(fingerElement('right-index').dataset.active).toBe('true');
+
+    cleanup();
+
+    // 子音前の促音でも x/l は acceptOnly のため候補強調しない
+    render(<LessonScreen mode="stage" words={['っか']} onFinish={vi.fn()} />);
+    expect(keyButton('k').dataset.guide).toBe('true');
+    expect(keyButton('x').className).not.toContain('kb-key-alt');
+    expect(keyButton('l').className).not.toContain('kb-key-alt');
+
+    cleanup();
+
+    // 通常の別綴り（「ち」の c / t）は引き続き候補強調される
+    render(<LessonScreen mode="stage" words={['ち']} onFinish={vi.fn()} />);
+    expect(keyButton('c').dataset.guide).toBe('true');
+    expect(keyButton('t').className).toContain('kb-key-alt');
+  });
+
+  it('ボタンにフォーカスがある状態で Space を押しても誤入力にならず既定動作を妨げない', () => {
+    render(<LessonScreen mode="stage" words={['あさ']} onFinish={vi.fn()} />);
+
+    const typedSection = screen.getByRole('region', { name: 'うった もじ' });
+    const buttons = [
+      screen.getByRole('button', { name: 'ヒント' }),
+      screen.getByRole('button', { name: 'おと ON' }),
+      screen.getByRole('button', { name: 'おわる' }),
+    ];
+
+    for (const btn of buttons) {
+      btn.focus();
+      const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true });
+      act(() => {
+        btn.dispatchEvent(event);
+      });
+      expect(event.defaultPrevented).toBe(false);
+      expect(typedSection.className).not.toContain('lesson-typed-shake');
+      expect(keyButton('a').dataset.hint).toBeUndefined();
+    }
+
+    // フォーカスがボタンにあっても通常の文字キーはそのまま入力できる
+    fireEvent.keyDown(buttons[0], { key: 'a' });
+    expect(keyButton('s').dataset.guide).toBe('true');
+  });
+
+  it('短い間隔で連続して誤打鍵しても、毎回揺れアニメーションのクラスが切り替わる', () => {
+    vi.useFakeTimers();
+    render(<LessonScreen mode="stage" words={['あ']} onFinish={vi.fn()} />);
+
+    const typedSection = screen.getByRole('region', { name: 'うった もじ' });
+
+    fireEvent.keyDown(window, { key: 'z' });
+    expect(typedSection.className).toContain('lesson-typed-shake');
+    const firstClass = typedSection.className;
+
+    act(() => {
+      vi.advanceTimersByTime(65);
+    });
+    fireEvent.keyDown(window, { key: 'z' });
+    expect(typedSection.className).toContain('lesson-typed-shake');
+    expect(typedSection.className).not.toBe(firstClass);
+
+    act(() => {
+      vi.advanceTimersByTime(65);
+    });
+    fireEvent.keyDown(window, { key: 'z' });
+    expect(typedSection.className).toContain('lesson-typed-shake');
+    expect(typedSection.className).toBe(firstClass);
+
+    // 最後の誤打鍵から 320ms 後に揺れクラスが解除される
+    act(() => {
+      vi.advanceTimersByTime(320);
+    });
+    expect(typedSection.className).not.toContain('lesson-typed-shake');
+  });
 });

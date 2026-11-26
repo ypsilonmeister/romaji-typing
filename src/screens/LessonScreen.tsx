@@ -55,6 +55,20 @@ function remainingGuideSpelling(state: MatcherState): string {
   return guideKey(state) ?? '';
 }
 
+function guideNextKeys(state: MatcherState): string[] {
+  if (state.typed !== '') return nextKeys(state);
+  const keys = candidates(state)
+    .filter((option) => !option.acceptOnly)
+    .flatMap((option) =>
+      option.romaji.length > 0 ? [option.romaji[0]] : (option.followers ?? []),
+    );
+  return [...new Set(keys)];
+}
+
+function isButtonElement(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('button, [role="button"]') !== null;
+}
+
 export function LessonScreen({
   mode,
   onFinish,
@@ -69,7 +83,7 @@ export function LessonScreen({
   const [matcher, setMatcher] = useState<MatcherState>(() => createMatcher(activeWords[0]));
   const [hintActive, setHintActive] = useState(false);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
-  const [isShaking, setIsShaking] = useState(false);
+  const [shakePhase, setShakePhase] = useState<0 | 1 | 2>(0);
   const [soundOn, setSoundOn] = useState(DEFAULT_SETTINGS.soundOn);
   const [soundVolume, setSoundVolume] = useState(DEFAULT_SETTINGS.soundVolume);
 
@@ -110,7 +124,7 @@ export function LessonScreen({
 
   const wordCompleted = isComplete(matcher);
   const currentGuideKey = guideKey(matcher);
-  const currentNextKeys = nextKeys(matcher);
+  const currentNextKeys = guideNextKeys(matcher);
   const activeFinger = showGuide || hintActive ? fingerOfKey(currentGuideKey) : undefined;
   const effectiveVolume = soundOn ? soundVolume : 0;
 
@@ -137,13 +151,11 @@ export function LessonScreen({
   }, []);
 
   const triggerShake = useCallback(() => {
-    setIsShaking(false);
     window.clearTimeout(shakeTimerRef.current);
-    // 次フレーム相当で付け直さなくても React の再描画で反映されるようにし、タイマーで解除する。
+    setShakePhase((prev) => (prev === 1 ? 2 : 1));
     shakeTimerRef.current = window.setTimeout(() => {
-      setIsShaking(false);
+      setShakePhase(0);
     }, SHAKE_MS);
-    setIsShaking(true);
   }, []);
 
   const scheduleNextWord = useCallback(
@@ -243,6 +255,9 @@ export function LessonScreen({
       }
       if (event.key.length === 1) {
         if (event.key === ' ') {
+          if (isButtonElement(event.target) || isButtonElement(document.activeElement)) {
+            return;
+          }
           event.preventDefault();
         }
         handleKeyInputRef.current(event.key);
@@ -269,6 +284,12 @@ export function LessonScreen({
 
   const remainingGuide = remainingGuideSpelling(matcher);
   const showRemainingGuide = (showGuide || hintActive) && remainingGuide.length > 0;
+  const shakeClass =
+    shakePhase === 1
+      ? ' lesson-typed-shake lesson-typed-shake-a'
+      : shakePhase === 2
+        ? ' lesson-typed-shake lesson-typed-shake-b'
+        : '';
 
   return (
     <main className="lesson">
@@ -330,7 +351,7 @@ export function LessonScreen({
       </section>
 
       <section
-        className={`lesson-card lesson-typed${isShaking ? ' lesson-typed-shake' : ''}`}
+        className={`lesson-card lesson-typed${shakeClass}`}
         aria-label="うった もじ"
       >
         <div className="typed-romaji" aria-live="polite">

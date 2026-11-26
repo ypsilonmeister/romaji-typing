@@ -32,7 +32,8 @@ export function VirtualKeyboard({
     const code = spec.code.toLowerCase();
     const isGuide = shouldHighlightGuide && normalizedGuide === code;
     const isHintGlow = hintActive && normalizedGuide === code;
-    const isAltNext = !isGuide && shouldHighlightGuide && nextSet.has(code);
+    const isAltNext =
+      normalizedGuide !== undefined && !isGuide && shouldHighlightGuide && nextSet.has(code);
     const isPressed = normalizedPressed === code;
     const fingerGroup = spec.finger ? FINGER_GROUP[spec.finger] : undefined;
 
