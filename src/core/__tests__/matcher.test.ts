@@ -395,10 +395,39 @@ describe('案内の追従', () => {
     ['しゃ', 'sya', ['s', 'h', 'a']],
     ['じゃ', 'zya', ['j', 'y', 'a']],
     ['じゃ', 'jya', ['j', 'a', 'a']],
+    ['ぢ', 'ji', ['d', 'i']],
+    ['づ', 'zu', ['d', 'u']],
+    ['ぢゃ', 'ja', ['d', 'a']],
+    ['ぢゅ', 'ju', ['d', 'u']],
+    ['ぢょ', 'jo', ['d', 'o']],
     ['きゃ', 'kixya', ['k', 'y', 'x', 'y', 'a']],
     ['っ', 'ltu', [undefined, 't', 'u']],
   ])('%s を %s と打つと、案内がその綴りに切り替わる', (word, keys, guides) => {
     expect(guideWhileTyping(word, keys)).toEqual(guides);
+  });
+
+  it.each([
+    ['ぢ', 'di', 'ji'],
+    ['づ', 'du', 'zu'],
+    ['ぢゃ', 'dya', 'ja'],
+    ['ぢゅ', 'dyu', 'ju'],
+    ['ぢょ', 'dyo', 'jo'],
+  ])('ぢ・づ・ぢゃ行: %s の案内は推奨 %s に沿い、許容 %s も受理する', (kana, recommended, allowed) => {
+    expect(followGuide(kana)).toBe(recommended);
+    expect(guideWhileTyping(kana, recommended)).toEqual([...recommended]);
+    expectCompletes(kana, recommended);
+    expectCompletes(kana, allowed);
+    expect(type(kana, allowed).completed).toEqual([{ kana, romaji: allowed }]);
+  });
+
+  it.each([
+    ['っぢ', 'ddi', 'jji'],
+    ['っづ', 'ddu', 'zzu'],
+    ['っぢゃ', 'ddya', 'jja'],
+  ])('促音＋ぢ・づ・ぢゃ行: %s の案内は推奨 %s に沿い、%s も受理する', (word, recommended, allowed) => {
+    expect(followGuide(word)).toBe(recommended);
+    expectCompletes(word, recommended);
+    expectCompletes(word, allowed);
   });
 
   it('促音の案内は子音の重ね。別綴りの子音にも追従する', () => {

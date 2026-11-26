@@ -24,7 +24,7 @@ export const ROMAJI_TABLE: Readonly<Record<string, Spellings>> = {
   // §1.2 濁点・半濁点
   が: ['ga'], ぎ: ['gi'], ぐ: ['gu'], げ: ['ge'], ご: ['go'],
   ざ: ['za'], じ: ['ji', 'zi'], ず: ['zu'], ぜ: ['ze'], ぞ: ['zo'],
-  だ: ['da'], ぢ: ['ji', 'di'], づ: ['zu', 'du'], で: ['de'], ど: ['do'],
+  だ: ['da'], ぢ: ['di', 'ji'], づ: ['du', 'zu'], で: ['de'], ど: ['do'],
   ば: ['ba'], び: ['bi'], ぶ: ['bu'], べ: ['be'], ぼ: ['bo'],
   ぱ: ['pa'], ぴ: ['pi'], ぷ: ['pu'], ぺ: ['pe'], ぽ: ['po'],
 
@@ -38,7 +38,7 @@ export const ROMAJI_TABLE: Readonly<Record<string, Spellings>> = {
   りゃ: ['rya'], りゅ: ['ryu'], りょ: ['ryo'],
   ぎゃ: ['gya'], ぎゅ: ['gyu'], ぎょ: ['gyo'],
   じゃ: ['ja', 'jya', 'zya'], じゅ: ['ju', 'jyu', 'zyu'], じょ: ['jo', 'jyo', 'zyo'],
-  ぢゃ: ['ja', 'dya'], ぢゅ: ['ju', 'dyu'], ぢょ: ['jo', 'dyo'],
+  ぢゃ: ['dya', 'ja'], ぢゅ: ['dyu', 'ju'], ぢょ: ['dyo', 'jo'],
   びゃ: ['bya'], びゅ: ['byu'], びょ: ['byo'],
   ぴゃ: ['pya'], ぴゅ: ['pyu'], ぴょ: ['pyo'],
 

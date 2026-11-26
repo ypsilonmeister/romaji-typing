@@ -55,11 +55,24 @@ describe('仕様 §1 の綴り', () => {
       つ: ['tsu', 'tu'],
       ふ: ['fu', 'hu'],
       じ: ['ji', 'zi'],
-      ぢ: ['ji', 'di'],
-      づ: ['zu', 'du'],
       を: ['wo'],
       ん: ['nn'],
     });
+  });
+
+  it('ぢ・づ・ぢゃ行の推奨は di/du/dya 系で、従来の ji/zu/ja 系も許容する', () => {
+    expect(ROMAJI_TABLE).toMatchObject({
+      ぢ: ['di', 'ji'],
+      づ: ['du', 'zu'],
+      ぢゃ: ['dya', 'ja'],
+      ぢゅ: ['dyu', 'ju'],
+      ぢょ: ['dyo', 'jo'],
+    });
+    expect(recommendedSpelling('ぢ')).toBe('di');
+    expect(recommendedSpelling('づ')).toBe('du');
+    expect(recommendedSpelling('ぢゃ')).toBe('dya');
+    expect(recommendedSpelling('ぢゅ')).toBe('dyu');
+    expect(recommendedSpelling('ぢょ')).toBe('dyo');
   });
 
   it('拗音の別綴り', () => {
@@ -67,7 +80,7 @@ describe('仕様 §1 の綴り', () => {
       しゃ: ['sha', 'sya'],
       ちゅ: ['chu', 'tyu', 'cyu'],
       じょ: ['jo', 'jyo', 'zyo'],
-      ぢゃ: ['ja', 'dya'],
+      ぢゃ: ['dya', 'ja'],
     });
   });
 

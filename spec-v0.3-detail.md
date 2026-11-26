@@ -7,6 +7,8 @@
 
 案内表示に使う「推奨綴り」と、正解として受け入れる「許容綴り」を分けて持つ。許容綴りは IME（MS-IME / Google 日本語入力）の受理範囲に準ずる。
 
+> 注記（2026-11-26 確定）: ぢ・づ・ぢゃ行の推奨綴りは IME の実際の打ち方に合わせて `di` / `du` / `dya` / `dyu` / `dyo` とする（従来の `ji` / `zu` / `ja` / `ju` / `jo` は許容綴りとして残す）。これにより、実装時の仕様確認で判断待ちだった ぢ・づ・ぢゃ行の扱いは解消された。
+
 ### 1.1 清音
 
 | かな | 推奨 | 許容 |
@@ -29,7 +31,7 @@
 |---|---|---|
 | が ぎ ぐ げ ご | ga gi gu ge go | |
 | ざ じ ず ぜ ぞ | za **ji** zu ze zo | じ=zi |
-| だ ぢ づ で ど | da ji zu de do | ぢ=di、づ=du |
+| だ ぢ づ で ど | da **di du** de do | ぢ=ji、づ=zu |
 | ば び ぶ べ ぼ | ba bi bu be bo | |
 | ぱ ぴ ぷ ぺ ぽ | pa pi pu pe po | |
 
@@ -46,7 +48,7 @@
 | りゃ りゅ りょ | rya ryu ryo | |
 | ぎゃ ぎゅ ぎょ | gya gyu gyo | |
 | じゃ じゅ じょ | **ja ju jo** | jya jyu jyo、zya zyu zyo |
-| ぢゃ ぢゅ ぢょ | ja ju jo | dya dyu dyo |
+| ぢゃ ぢゅ ぢょ | **dya dyu dyo** | ja ju jo |
 | びゃ びゅ びょ | bya byu byo | |
 | ぴゃ ぴゅ ぴょ | pya pyu pyo | |
 
