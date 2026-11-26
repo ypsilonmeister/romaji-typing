@@ -4,6 +4,7 @@ import {
   playKeySound,
   playWordCompleteSound,
   playWrongKeySound,
+  WORD_COMPLETE_SOUND_DURATION_MS,
 } from '../audio/sound';
 import { voicePlayer, type VoicePlayer } from '../audio/voice';
 import { HandDiagram } from '../components/HandDiagram';
@@ -38,6 +39,8 @@ const DEFAULT_HINT_DELAY_MS = 5000;
 const DEFAULT_WORD_TRANSITION_MS = 550;
 const KEY_FLASH_MS = 140;
 const SHAKE_MS = 320;
+/** 音声（読み上げ・声かけ）再生中に効果音の音量を下げる係数。 */
+const VOICE_DUCKING_FACTOR = 0.35;
 
 export interface LessonScreenProps {
   readonly mode: LessonMode;
@@ -143,7 +146,8 @@ export function LessonScreen({
   const sessionSavedRef = useRef(false);
   const sessionIdPromiseRef = useRef<Promise<number | undefined> | undefined>(undefined);
   const lessonClearedRef = useRef(false);
-  const voiceOnRef = useRef(DEFAULT_SETTINGS.voiceOn);
+  // 保存済みの音声設定を読み込み終えるまでは発火を抑止する（OFF 保存時の誤再生防止）。
+  const voiceOnRef = useRef(false);
   const startVoicePlayedRef = useRef(false);
 
   // 保存済みの音・音声設定を読み込み、音声 ON なら開始時の声かけを鳴らす。
@@ -164,6 +168,7 @@ export function LessonScreen({
       .catch(() => {
         if (cancelled) return;
         // 既定値のまま続行
+        voiceOnRef.current = DEFAULT_SETTINGS.voiceOn;
         if (DEFAULT_SETTINGS.voiceOn && !startVoicePlayedRef.current) {
           startVoicePlayedRef.current = true;
           voice.playPhrase('lesson-start');
@@ -260,7 +265,7 @@ export function LessonScreen({
   }, [onFinish, saveSessionIfNeeded]);
 
   const scheduleNextWord = useCallback(
-    (completedIndex: number) => {
+    (completedIndex: number, voiceDelayMs = 0) => {
       window.clearTimeout(advanceTimerRef.current);
       const nextIndex = completedIndex + 1;
       if (nextIndex >= activePrompts.length) {
@@ -269,7 +274,7 @@ export function LessonScreen({
         saveSessionIfNeeded();
         markLessonClearedIfNeeded();
         if (voiceOnRef.current) {
-          voice.playPhrase('lesson-clear');
+          voice.playPhrase('lesson-clear', { delayMs: voiceDelayMs });
         }
       }
       advanceTimerRef.current = window.setTimeout(() => {
@@ -296,6 +301,10 @@ export function LessonScreen({
 
   const handleKeyInput = useCallback(
     (key: string) => {
+      const effectVolume = voice.isPlaying()
+        ? effectiveVolume * VOICE_DUCKING_FACTOR
+        : effectiveVolume;
+
       if (key === 'Backspace') {
         flashKey('Backspace');
         setMatcher((prev) => {
@@ -303,7 +312,7 @@ export function LessonScreen({
           const next = backspace(prev);
           if (next !== prev) {
             setHintActive(false);
-            playKeySound(effectiveVolume);
+            playKeySound(effectVolume);
           }
           return next;
         });
@@ -339,20 +348,21 @@ export function LessonScreen({
 
         if (isComplete(result.state)) {
           const completedPrompt = activePrompts[wordIndex];
+          const voiceDelayMs = effectVolume > 0 ? WORD_COMPLETE_SOUND_DURATION_MS : 0;
+          playWordCompleteSound(effectVolume);
           if (completedPrompt.isWord !== false) {
             void store.recordWordTyped(completedPrompt.text).catch(() => {
               // 保存に失敗しても画面の動作は止めない
             });
             if (voiceOnRef.current) {
-              voice.playWord(completedPrompt.text);
+              voice.playWord(completedPrompt.text, { delayMs: voiceDelayMs });
             }
           }
-          playWordCompleteSound(effectiveVolume);
-          scheduleNextWord(wordIndex);
+          scheduleNextWord(wordIndex, voiceDelayMs);
         } else if (result.completed.length > 0) {
-          playKanaCompleteSound(effectiveVolume);
+          playKanaCompleteSound(effectVolume);
         } else {
-          playKeySound(effectiveVolume);
+          playKeySound(effectVolume);
         }
         return;
       }
@@ -366,7 +376,7 @@ export function LessonScreen({
         setMatcher(result.state);
         setHintActive(true);
         triggerShake();
-        playWrongKeySound(effectiveVolume);
+        playWrongKeySound(effectVolume);
       }
     },
     [

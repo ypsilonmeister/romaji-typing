@@ -3,9 +3,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
+import * as sound from '../audio/sound';
 import { createVoicePlayer, type AudioLike } from '../audio/voice';
 import type { VoiceManifest } from '../audio/voiceManifest';
-import { progressStore } from '../progress';
+import { DEFAULT_SETTINGS, progressStore, type Settings } from '../progress';
 import { EndScreen } from '../screens/EndScreen';
 import { LessonScreen } from '../screens/LessonScreen';
 import { ParentGateScreen } from '../screens/ParentGateScreen';
@@ -126,11 +127,72 @@ describe('レッスン画面の音声再生（Issue #13）', () => {
       vi.advanceTimersByTime(50);
     });
 
-    // 3. 単語「あさ」（isWord: true、マニフェスト登録済み）を打ち終えた瞬間に読み上げが鳴る
+    // 3. 単語「あさ」（isWord: true、マニフェスト登録済み）を打ち終えると完成音の後に読み上げが鳴る
     fireEvent.keyDown(window, { key: 'a' });
     fireEvent.keyDown(window, { key: 's' });
     expect(audios).toHaveLength(1);
     fireEvent.keyDown(window, { key: 'a' });
+    // 効果音 ON のため、完成音と同時には鳴らず WORD_COMPLETE_SOUND_DURATION_MS 後に再生が始まる
+    expect(audios).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS);
+    });
+    expect(audios.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+    ]);
+    audios[1].finish();
+
+    // 4. 未登録単語「かさ」を打ち終えると単語読み上げは無音で素通りし、最終問なので完成音後に lesson-clear が鳴る
+    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(audios).toHaveLength(2);
+
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS);
+    });
+    expect(audios.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+    expect(onFinish).toHaveBeenCalledOnce();
+  });
+
+  it('効果音 ON 時は完成音の後に単語読み上げを開始し、効果音 OFF 時は即座に読み上げを開始する', async () => {
+    const wordCompleteSpy = vi.spyOn(sound, 'playWordCompleteSound');
+    const { player, audios } = createTestVoicePlayer();
+
+    render(
+      <LessonScreen
+        mode="stage"
+        words={['あさ', 'あさ']}
+        wordTransitionMs={500}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(audios.map((a) => a.src)).toEqual(['/audio/phrases/lesson-start.mp3']);
+    });
+    audios[0].finish();
+
+    vi.useFakeTimers();
+
+    // 効果音 ON の状態で「あさ」を完了: 完成音が先に鳴り、読み上げは遅延する
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
+    expect(wordCompleteSpy).toHaveBeenCalledTimes(1);
+    expect(audios).toHaveLength(1);
+
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS);
+    });
     expect(audios.map((a) => a.src)).toEqual([
       '/audio/phrases/lesson-start.mp3',
       '/audio/words/asa.mp3',
@@ -138,24 +200,96 @@ describe('レッスン画面の音声再生（Issue #13）', () => {
     audios[1].finish();
 
     act(() => {
-      vi.advanceTimersByTime(50);
+      vi.advanceTimersByTime(100);
     });
 
-    // 4. 未登録単語「かさ」を打ち終えると単語読み上げは無音で素通りし、最終問なので lesson-clear が鳴る
-    fireEvent.keyDown(window, { key: 'k' });
+    // 効果音を OFF に切り替えて2問目の「あさ」を完了: 遅延せず即座に読み上げが始まる
+    fireEvent.click(screen.getByRole('button', { name: 'おと ON' }));
     fireEvent.keyDown(window, { key: 'a' });
     fireEvent.keyDown(window, { key: 's' });
     fireEvent.keyDown(window, { key: 'a' });
     expect(audios.map((a) => a.src)).toEqual([
       '/audio/phrases/lesson-start.mp3',
       '/audio/words/asa.mp3',
-      '/audio/phrases/lesson-clear.mp3',
+      '/audio/words/asa.mp3',
     ]);
+  });
+
+  it('音声の再生中は打鍵音の音量を下げて重なりを抑える', async () => {
+    const keySoundSpy = vi.spyOn(sound, 'playKeySound');
+    const { player, audios } = createTestVoicePlayer();
+
+    render(
+      <LessonScreen
+        mode="stage"
+        words={['かさ']}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    // lesson-start 再生中のまま打鍵する（'k' で打鍵音、'a' で「か」完成音）
+    await waitFor(() => {
+      expect(audios.map((a) => a.src)).toEqual(['/audio/phrases/lesson-start.mp3']);
+    });
+    fireEvent.keyDown(window, { key: 'k' });
+    const volumeDuringVoice = keySoundSpy.mock.calls[0][0];
+    fireEvent.keyDown(window, { key: 'a' });
+
+    // 音声が終わってから打鍵する（'s' で通常音量の打鍵音）
+    audios[0].finish();
+    fireEvent.keyDown(window, { key: 's' });
+    const volumeAfterVoice = keySoundSpy.mock.calls[1][0];
+
+    expect(volumeDuringVoice).toBeGreaterThan(0);
+    expect(volumeDuringVoice).toBeLessThan(volumeAfterVoice);
+  });
+
+  it('保存済みの音声 OFF を読み込む前に単語を完了しても、単語読み上げと完了の声かけが鳴らない', async () => {
+    const { player, audios } = createTestVoicePlayer();
+    let resolveSettings!: (settings: Settings) => void;
+    const delayedSettings = new Promise<Settings>((resolve) => {
+      resolveSettings = resolve;
+    });
+
+    const store = {
+      getSettings: () => delayedSettings,
+      updateSettings: vi.fn().mockResolvedValue(DEFAULT_SETTINGS),
+      recordWordTyped: vi.fn().mockResolvedValue(undefined),
+      addSession: vi.fn().mockResolvedValue(1),
+      recordKanaAttempt: vi.fn().mockResolvedValue(undefined),
+      markLessonCleared: vi.fn().mockResolvedValue(undefined),
+    };
+
+    render(
+      <LessonScreen
+        mode="stage"
+        words={['あさ']}
+        wordTransitionMs={500}
+        store={store}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    vi.useFakeTimers();
+
+    // getSettings() が返る前に「あさ」1問を打ち切る
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
 
     act(() => {
-      vi.advanceTimersByTime(50);
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS + 100);
     });
-    expect(onFinish).toHaveBeenCalledOnce();
+    expect(audios).toHaveLength(0);
+
+    // その後 voiceOn: false で設定が返っても無音のまま
+    await act(async () => {
+      resolveSettings({ ...DEFAULT_SETTINGS, voiceOn: false });
+      await delayedSettings;
+    });
+    expect(audios).toHaveLength(0);
   });
 
   it('途中で「おわる」を押した場合は lesson-clear を鳴らさない', async () => {

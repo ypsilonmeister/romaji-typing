@@ -62,6 +62,7 @@ const SAMPLE_MANIFEST: VoiceManifest = {
 };
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -231,7 +232,7 @@ describe('createVoicePlayer', () => {
     expect(created).toHaveLength(1);
   });
 
-  it('待機キューの上限を超えた場合は古い待機分を捨てて最新を残す', () => {
+  it('待機キューの上限を超えた場合は古い単語の待機分を捨てて最新を残す', () => {
     const created: FakeAudio[] = [];
     const player = createVoicePlayer({
       manifest: SAMPLE_MANIFEST,
@@ -251,5 +252,158 @@ describe('createVoicePlayer', () => {
     created[0].emit('ended');
     expect(created).toHaveLength(2);
     expect(created[1].src).toBe('/audio/phrases/lesson-clear.mp3');
+  });
+
+  it('混雑時でも完了・終了の声かけは破棄せず、待機中の自己申告は最新1件に集約する', () => {
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      maxQueueSize: 3,
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    // 最終単語の再生中に lesson-clear・session-end が待機し、さらに自己申告を3回押す
+    player.playWord('あさ');
+    player.playPhrase('lesson-clear');
+    player.playPhrase('session-end');
+    player.playPhrase('self-report-good');
+    player.playPhrase('self-report-ok');
+    player.playPhrase('self-report-tired');
+
+    expect(created.map((a) => a.src)).toEqual(['/audio/words/asa.mp3']);
+
+    created[0].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+
+    created[1].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+      '/audio/phrases/session-end.mp3',
+    ]);
+
+    created[2].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+      '/audio/phrases/session-end.mp3',
+      '/audio/phrases/self-report-tired.mp3',
+    ]);
+
+    created[3].emit('ended');
+    expect(created).toHaveLength(4);
+  });
+
+  it('単語読み上げがキュー上限を超えても待機中の開始・完了・終了の声かけは押し出さない', () => {
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      maxQueueSize: 2,
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    player.playWord('あさ');
+    player.playPhrase('lesson-clear');
+    player.playWord('かさ');
+    player.playWord('あさ');
+
+    created[0].emit('ended');
+    expect(created[1].src).toBe('/audio/phrases/lesson-clear.mp3');
+
+    created[1].emit('ended');
+    expect(created[2].src).toBe('/audio/words/asa.mp3');
+
+    created[2].emit('ended');
+    expect(created).toHaveLength(3);
+  });
+
+  it('isPlaying() は再生中のみ true を返し、終了・停止後は false を返す', () => {
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    expect(player.isPlaying()).toBe(false);
+    player.playWord('あさ');
+    expect(player.isPlaying()).toBe(true);
+
+    created[0].emit('ended');
+    expect(player.isPlaying()).toBe(false);
+
+    player.playWord('かさ');
+    expect(player.isPlaying()).toBe(true);
+    player.stop();
+    expect(player.isPlaying()).toBe(false);
+  });
+
+  it('delayMs 指定時はアイドルから指定ミリ秒後に再生を開始し、その間の後続要求は後ろに並べる', () => {
+    vi.useFakeTimers();
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    expect(player.playWord('あさ', { delayMs: 420 })).toBe(true);
+    expect(player.playPhrase('lesson-clear', { delayMs: 420 })).toBe(true);
+    expect(created).toHaveLength(0);
+    expect(player.isPlaying()).toBe(false);
+
+    vi.advanceTimersByTime(419);
+    expect(created).toHaveLength(0);
+
+    vi.advanceTimersByTime(1);
+    expect(created.map((a) => a.src)).toEqual(['/audio/words/asa.mp3']);
+    expect(player.isPlaying()).toBe(true);
+
+    // 単語の再生が終わったら lesson-clear が順に再生される
+    created[0].emit('ended');
+    expect(created.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+  });
+
+  it('stop() は delayMs で待機中の再生も取り消す', () => {
+    vi.useFakeTimers();
+    const created: FakeAudio[] = [];
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        created.push(audio);
+        return audio;
+      },
+    });
+
+    player.playWord('あさ', { delayMs: 420 });
+    player.stop();
+    vi.advanceTimersByTime(1000);
+    expect(created).toHaveLength(0);
   });
 });

@@ -37,7 +37,8 @@ export function EndScreen({
   const [selfReportOn, setSelfReportOn] = useState(DEFAULT_SETTINGS.selfReportOn);
   const [sessionId, setSessionId] = useState<number | undefined>(undefined);
   const [selected, setSelected] = useState<SelfReport | null>(null);
-  const voiceOnRef = useRef(DEFAULT_SETTINGS.voiceOn);
+  // 保存済みの音声設定を読み込み終えるまでは発火を抑止する（OFF 保存時の誤再生防止）。
+  const voiceOnRef = useRef(false);
   const endVoicePlayedRef = useRef(false);
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export function EndScreen({
       .catch(() => {
         if (!active) return;
         // IndexedDB が使えない環境では既定値のまま進める
+        voiceOnRef.current = DEFAULT_SETTINGS.voiceOn;
         if (DEFAULT_SETTINGS.voiceOn && !endVoicePlayedRef.current) {
           endVoicePlayedRef.current = true;
           voice.playPhrase('session-end');
