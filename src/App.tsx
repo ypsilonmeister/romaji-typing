@@ -110,13 +110,19 @@ export function App({ store = progressStore }: AppProps = {}) {
           }
           store={store}
           onLessonCleared={handleLessonCleared}
-          onFinish={() => setScreen({ name: 'end' })}
+          onFinish={(sessionIdPromise) => setScreen({ name: 'end', sessionIdPromise })}
         />
       );
     case 'end':
-      return <EndScreen onBackToStart={toMenu} />;
+      return (
+        <EndScreen
+          sessionIdPromise={screen.sessionIdPromise}
+          onBackToStart={toMenu}
+          store={store}
+        />
+      );
     case 'zukan':
-      return <ZukanScreen onBack={toMenu} />;
+      return <ZukanScreen onBack={toMenu} store={store} />;
     case 'parentGate':
       return <ParentGateScreen onBack={toMenu} store={store} />;
   }

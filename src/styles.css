@@ -129,6 +129,128 @@ button:focus-visible {
 
 /* ---- 保護者ゲート ---- */
 
+.parent-settings {
+  inline-size: min(100%, 40rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+.setting-row input[type='checkbox'] {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  accent-color: var(--accent);
+}
+
+/* ---- 終了画面（自己申告） ---- */
+
+.self-report {
+  inline-size: min(100%, 44rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.self-report-choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.self-report-selected {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+}
+
+.self-report-ack {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--done);
+}
+
+/* ---- ことば図鑑 ---- */
+
+.screen-zukan {
+  align-items: stretch;
+}
+
+.zukan-body {
+  inline-size: min(100%, 64rem);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.zukan-empty {
+  inline-size: 100%;
+  max-inline-size: none;
+  text-align: center;
+  font-size: 1.15rem;
+}
+
+.zukan-theme {
+  inline-size: 100%;
+  max-inline-size: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.zukan-theme-title {
+  font-size: 1.3rem;
+  padding-block-end: 0.35rem;
+  border-block-end: 2px solid #d7e0e6;
+}
+
+.zukan-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.zukan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.75rem 0.6rem;
+  border-radius: 0.75rem;
+  border: 2px solid #cbd6de;
+  background: var(--bg);
+  text-align: center;
+}
+
+.zukan-kana {
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.zukan-romaji {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #465866;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  letter-spacing: 0.04em;
+}
+
 .history {
   inline-size: min(100%, 40rem);
 }
