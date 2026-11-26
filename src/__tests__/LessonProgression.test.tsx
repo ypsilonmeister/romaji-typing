@@ -140,6 +140,136 @@ describe('レッスン進行とステージ解放（Issue #4）', () => {
     expect(sessions[0].typedKanaCount).toBeGreaterThan(0);
   });
 
+  it('起動時の進捗復元が最終問のクリアより後に完了しても、空の復元結果で上書きされず Stage B が解放されたままになる', async () => {
+    const store = createTestStore();
+    await store.updateSettings({ selfReportOn: true });
+    window.localStorage.setItem('typecraft.introSeen', '1');
+
+    // 起動時の getClearedLessonIds だけ解決を意図的に遅らせる
+    let resolveInitialCleared!: (value: Set<string>) => void;
+    const originalGetCleared = store.getClearedLessonIds.bind(store);
+    const originalGetAllKana = store.getAllKanaProgress.bind(store);
+    let initialKanaPromise!: ReturnType<ProgressStore['getAllKanaProgress']>;
+    const getClearedSpy = vi.spyOn(store, 'getClearedLessonIds').mockImplementationOnce(
+      () =>
+        new Promise<Set<string>>((resolve) => {
+          resolveInitialCleared = resolve;
+        }),
+    );
+    vi.spyOn(store, 'getAllKanaProgress').mockImplementationOnce(() => {
+      initialKanaPromise = originalGetAllKana();
+      return initialKanaPromise;
+    });
+
+    render(<App store={store} />);
+    expect(getClearedSpy).toHaveBeenCalledTimes(1);
+
+    // 起動読み込み完了を待たずに Stage A を開始し、10問完了直後に「おわる」を押す
+    fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+
+    vi.useFakeTimers();
+    let safety = 0;
+    while (safety < 200) {
+      safety++;
+      const progressText = screen.getByLabelText(/^おだい /).textContent?.trim();
+      const isLastPrompt = progressText === '10 / 10';
+      const key = guidedKeyCode();
+      if (key) {
+        fireEvent.keyDown(window, { key });
+        if (isLastPrompt && screen.queryByText('できた！')) {
+          break;
+        }
+      } else {
+        act(() => {
+          vi.advanceTimersByTime(600);
+        });
+      }
+    }
+
+    expect(screen.getByText('できた！')).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'おわる' }));
+    vi.useRealTimers();
+
+    // 終了画面で「よかった」を選んで保存を確認してから「はじめに もどる」を押す
+    const goodButton = await screen.findByRole('button', { name: 'よかった' });
+    fireEvent.click(goodButton);
+    await waitFor(async () => {
+      const sessions = await store.getSessions();
+      expect(sessions.length).toBe(1);
+      expect(sessions[0].selfReport).toBe('good');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
+
+    // セッション中のクリア反映後に、起動時の古い空集合が遅れて解決する
+    await act(async () => {
+      resolveInitialCleared(new Set());
+      await initialKanaPromise;
+      await Promise.resolve();
+    });
+
+    const stageBButton = screen.getByRole('button', { name: /^Stage B/ }) as HTMLButtonElement;
+    expect(stageBButton.disabled).toBe(false);
+    expect(screen.getByRole('button', { name: /^Stage A/ }).textContent).toContain('クリア');
+
+    const cleared = await originalGetCleared();
+    expect(cleared.has('stage-a')).toBe(true);
+  });
+
+  it('起動時の復元が遅れて既存クリアを返しても、セッション中のクリアと併合（和集合）されて両方反映される', async () => {
+    const store = createTestStore();
+    window.localStorage.setItem('typecraft.introSeen', '1');
+
+    let resolveInitialCleared!: (value: Set<string>) => void;
+    const originalGetAllKana = store.getAllKanaProgress.bind(store);
+    let initialKanaPromise!: ReturnType<ProgressStore['getAllKanaProgress']>;
+    vi.spyOn(store, 'getClearedLessonIds').mockImplementationOnce(
+      () =>
+        new Promise<Set<string>>((resolve) => {
+          resolveInitialCleared = resolve;
+        }),
+    );
+    vi.spyOn(store, 'getAllKanaProgress').mockImplementationOnce(() => {
+      initialKanaPromise = originalGetAllKana();
+      return initialKanaPromise;
+    });
+
+    render(<App store={store} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Stage A/ }));
+
+    vi.useFakeTimers();
+    let safety = 0;
+    while (!screen.queryByRole('heading', { level: 1, name: 'またね' }) && safety < 200) {
+      safety++;
+      const key = guidedKeyCode();
+      if (key) {
+        fireEvent.keyDown(window, { key });
+      } else {
+        act(() => {
+          vi.advanceTimersByTime(600);
+        });
+      }
+    }
+    vi.useRealTimers();
+
+    fireEvent.click(screen.getByRole('button', { name: 'はじめに もどる' }));
+    expect(screen.getByRole('button', { name: /^Stage A/ }).textContent).toContain('クリア');
+    expect(screen.getByRole('button', { name: /^Stage B/ }).textContent).toContain('あそべる');
+
+    // 起動時の復元に既存のクリア（stage-b）が含まれていた場合、セッション中の stage-a と両方残る
+    await act(async () => {
+      resolveInitialCleared(new Set(['stage-b']));
+      await initialKanaPromise;
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^Stage A/ }).textContent).toContain('クリア');
+      const stageBButton = screen.getByRole('button', { name: /^Stage B/ }) as HTMLButtonElement;
+      expect(stageBButton.disabled).toBe(false);
+      expect(stageBButton.textContent).toContain('クリア');
+    });
+  });
+
   it('途中で「おわる」を押した場合は Stage B が解放されない（未入力・入力途中とも）', async () => {
     const store = createTestStore();
     window.localStorage.setItem('typecraft.introSeen', '1');

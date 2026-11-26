@@ -25,8 +25,20 @@ export function App({ store = progressStore }: AppProps = {}) {
     Promise.all([store.getClearedLessonIds(), store.getAllKanaProgress()])
       .then(([cleared, kana]) => {
         if (!active) return;
-        setClearedLessonIds(cleared);
-        setKanaProgress(kana);
+        setClearedLessonIds((prev) => {
+          if (cleared.size === 0) return prev;
+          if (prev.size === 0) return cleared;
+          let changed = false;
+          const merged = new Set(prev);
+          for (const id of cleared) {
+            if (!merged.has(id)) {
+              merged.add(id);
+              changed = true;
+            }
+          }
+          return changed ? merged : prev;
+        });
+        setKanaProgress((prev) => (prev.length === 0 ? kana : prev));
       })
       .catch(() => {
         // 保存先が使えない環境でもそのまま遊べるようにする
