@@ -278,8 +278,33 @@ describe('完成後のキー', () => {
     expect(pressKey(once, 'n')).toEqual({ state: once, accepted: false, absorbed: false, completed: [] });
   });
 
-  it('間にほかのキーを挟んでも、最初の n を受け流す', () => {
-    expect(pressKey(type('みかん', 'mikana'), 'n').absorbed).toBe(true);
+  it('間に別の1文字キーを挟むと受け流しは失効する', () => {
+    const done = type('みかん', 'mikan');
+    const other = pressKey(done, 'a');
+    expect(other).toEqual({
+      state: { ...done, absorbableN: false },
+      accepted: false,
+      absorbed: false,
+      completed: [],
+    });
+    expect(pressKey(other.state, 'n')).toEqual({
+      state: other.state,
+      accepted: false,
+      absorbed: false,
+      completed: [],
+    });
+  });
+
+  it('Shift などの1文字でないキーを挟んでも直後の n は受け流す', () => {
+    const done = type('みかん', 'mikan');
+    const afterShift = pressKey(done, 'Shift');
+    expect(afterShift).toEqual({ state: done, accepted: false, absorbed: false, completed: [] });
+    expect(pressKey(afterShift.state, 'N')).toEqual({
+      state: { ...done, absorbableN: false },
+      accepted: false,
+      absorbed: true,
+      completed: [],
+    });
   });
 
   it.each([

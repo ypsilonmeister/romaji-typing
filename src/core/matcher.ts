@@ -38,7 +38,7 @@ export interface MatcherState {
   readonly completed: readonly CompletedKana[];
   /** 詰まりの検出用（§2.4）。画面には出さない。 */
   readonly mistakeCount: number;
-  /** 語末の「ん」を n 1つで完成させた後で、まだ受け流せる n が残っている。 */
+  /** 語末の「ん」を n 1つで完成させた直後で、余分な n を1つ受け流せる。 */
   readonly absorbableN: boolean;
 }
 
@@ -47,7 +47,7 @@ export interface KeyResult {
   /** 入力として受け付けた。true になるのは、キー（小文字化後）が直前の nextKeys にある場合だけ。 */
   readonly accepted: boolean;
   /**
-   * 語末の「ん」を n 1つで完成させた後の、余分な n を受け流した。
+   * 語末の「ん」を n 1つで完成させた直後の、余分な n を受け流した。
    * 入力ではないので accepted は false。ミスにも数えないので、画面はミスの表示を出さない。
    */
   readonly absorbed: boolean;
@@ -166,7 +166,7 @@ function completeCurrent(state: MatcherState, romaji: string): KeyResult {
 /**
  * キーを1つ入力する。key は KeyboardEvent.key をそのまま渡せる（大文字小文字は区別しない）。
  * Shift などの1文字でないキーと、完成後のキーは、受け付けないがミスにも数えない。
- * 語末の「ん」を n 1つで完成させた場合は、その後の最初の n を1つだけ absorbed として返す。
+ * 語末の「ん」を n 1つで完成させた場合は、直後の n を1つだけ absorbed として返す（別の1文字キーを挟むと失効する）。
  * 合わないキーは受け付けず、候補を保ったままミスを数える（§2.4）。
  */
 export function pressKey(state: MatcherState, key: string): KeyResult {
@@ -175,8 +175,8 @@ export function pressKey(state: MatcherState, key: string): KeyResult {
   const char = key.toLowerCase();
 
   if (isComplete(state)) {
-    if (!state.absorbableN || char !== 'n') return ignored;
-    return { ...ignored, absorbed: true, state: { ...state, absorbableN: false } };
+    if (!state.absorbableN) return ignored;
+    return { ...ignored, absorbed: char === 'n', state: { ...state, absorbableN: false } };
   }
 
   const { options } = state.units[state.index];
