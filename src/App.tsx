@@ -31,9 +31,14 @@ export function App() {
         />
       );
     case 'lesson':
-      return <LessonScreen mode={screen.mode} onFinish={() => setScreen({ name: 'end' })} />;
+      return (
+        <LessonScreen
+          mode={screen.mode}
+          onFinish={(sessionIdPromise) => setScreen({ name: 'end', sessionIdPromise })}
+        />
+      );
     case 'end':
-      return <EndScreen onBackToStart={toMenu} />;
+      return <EndScreen sessionIdPromise={screen.sessionIdPromise} onBackToStart={toMenu} />;
     case 'zukan':
       return <ZukanScreen onBack={toMenu} />;
     case 'parentGate':

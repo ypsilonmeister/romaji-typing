@@ -28,16 +28,23 @@ export interface WordProgress {
   typedCount: number;
 }
 
+/** 終了画面での本人の自己申告（仕様 v0.3 §7）。 */
+export type SelfReport = 'good' | 'ok' | 'hard' | 'skip';
+
 /** 1回のれんしゅうの記録。保護者ゲートで確認する。 */
 export interface SessionRecord {
   /** れんしゅうを始めた日時。 */
   date: Date;
   durationSec: number;
   typedKanaCount: number;
+  /** 終了画面での本人の自己申告（設定が ON のときだけ記録する）。 */
+  selfReport?: SelfReport;
 }
 
 export interface Settings {
   soundOn: boolean;
   /** 0（無音）〜1（最大）。 */
   soundVolume: number;
+  /** 終了画面で本人の自己申告「きょうは どうだった？」を表示するか。初期は OFF（仕様 v0.3 §7）。 */
+  selfReportOn: boolean;
 }

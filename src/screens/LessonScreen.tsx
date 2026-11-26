@@ -17,15 +17,20 @@ import {
   pressKey,
   type MatcherState,
 } from '../core/matcher';
+import { THEME_PACKS } from '../data/wordPacks';
 import { fingerOfKey } from '../lesson/keyboardLayout';
 import { SAMPLE_WORDS } from '../lesson/sampleWords';
-import { DEFAULT_SETTINGS, progressStore } from '../progress';
+import { DEFAULT_SETTINGS, progressStore, type ProgressStore } from '../progress';
 import type { LessonMode } from '../screen';
 
 const TITLES: Record<LessonMode, string> = {
   stage: 'レッスン',
   theme: 'テーマで あそぶ',
 };
+
+const DEFAULT_THEME_WORDS: readonly string[] = THEME_PACKS[0].words
+  .slice(0, 10)
+  .map((word) => word.kana);
 
 const DEFAULT_HINT_DELAY_MS = 5000;
 const DEFAULT_WORD_TRANSITION_MS = 550;
@@ -34,8 +39,8 @@ const SHAKE_MS = 320;
 
 export interface LessonScreenProps {
   readonly mode: LessonMode;
-  readonly onFinish: () => void;
-  /** 出題する単語リスト。省略時は組み込みのサンプル単語を使う（本実装は Issue #4）。 */
+  readonly onFinish: (sessionIdPromise?: Promise<number | undefined>) => void;
+  /** 出題する単語リスト。省略時は組み込みのサンプル単語（theme 時は単語パック）を使う。 */
   readonly words?: readonly string[];
   /** 通常のキー案内を出すか（既定 true）。 */
   readonly showGuide?: boolean;
@@ -43,6 +48,11 @@ export interface LessonScreenProps {
   readonly hintDelayMs?: number;
   /** 単語完成から次のお題へ進むまでの間（ミリ秒）。既定 550ms。 */
   readonly wordTransitionMs?: number;
+  /** 進捗の保存先。テストで差し替えられる。 */
+  readonly store?: Pick<
+    ProgressStore,
+    'getSettings' | 'updateSettings' | 'recordWordTyped' | 'addSession'
+  >;
 }
 
 function remainingGuideSpelling(state: MatcherState): string {
@@ -72,12 +82,14 @@ function isButtonElement(target: EventTarget | null): boolean {
 export function LessonScreen({
   mode,
   onFinish,
-  words = SAMPLE_WORDS,
+  words,
   showGuide = true,
   hintDelayMs = DEFAULT_HINT_DELAY_MS,
   wordTransitionMs = DEFAULT_WORD_TRANSITION_MS,
+  store = progressStore,
 }: LessonScreenProps) {
-  const activeWords = words.length > 0 ? words : SAMPLE_WORDS;
+  const defaultWords = mode === 'theme' ? DEFAULT_THEME_WORDS : SAMPLE_WORDS;
+  const activeWords = words && words.length > 0 ? words : defaultWords;
 
   const [wordIndex, setWordIndex] = useState(0);
   const [matcher, setMatcher] = useState<MatcherState>(() => createMatcher(activeWords[0]));
@@ -88,6 +100,9 @@ export function LessonScreen({
   const [soundVolume, setSoundVolume] = useState(DEFAULT_SETTINGS.soundVolume);
 
   const isComposingRef = useRef(false);
+  const startedAtRef = useRef<Date>(new Date());
+  const typedKanaCountRef = useRef(0);
+  const finishedRef = useRef(false);
   const hintTimerRef = useRef<number | undefined>(undefined);
   const flashTimerRef = useRef<number | undefined>(undefined);
   const shakeTimerRef = useRef<number | undefined>(undefined);
@@ -96,7 +111,7 @@ export function LessonScreen({
   // 保存済みの音設定を読み込む（IndexedDB が使えない環境では既定値のまま進める）。
   useEffect(() => {
     let cancelled = false;
-    progressStore
+    store
       .getSettings()
       .then((settings) => {
         if (!cancelled) {
@@ -110,7 +125,7 @@ export function LessonScreen({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [store]);
 
   // クリーンアップ
   useEffect(() => {
@@ -158,6 +173,26 @@ export function LessonScreen({
     }, SHAKE_MS);
   }, []);
 
+  const finishLesson = useCallback(() => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    let sessionIdPromise: Promise<number | undefined> | undefined;
+    if (typedKanaCountRef.current > 0) {
+      const durationSec = Math.max(
+        1,
+        Math.round((Date.now() - startedAtRef.current.getTime()) / 1000),
+      );
+      sessionIdPromise = store
+        .addSession({
+          date: startedAtRef.current,
+          durationSec,
+          typedKanaCount: typedKanaCountRef.current,
+        })
+        .catch(() => undefined);
+    }
+    onFinish(sessionIdPromise);
+  }, [onFinish, store]);
+
   const scheduleNextWord = useCallback(
     (completedIndex: number) => {
       window.clearTimeout(advanceTimerRef.current);
@@ -168,11 +203,11 @@ export function LessonScreen({
           setMatcher(createMatcher(activeWords[nextIndex]));
           setHintActive(false);
         } else {
-          onFinish();
+          finishLesson();
         }
       }, wordTransitionMs);
     },
-    [activeWords, onFinish, wordTransitionMs],
+    [activeWords, finishLesson, wordTransitionMs],
   );
 
   const handleKeyInput = useCallback(
@@ -199,7 +234,14 @@ export function LessonScreen({
         setMatcher(result.state);
         setHintActive(false);
 
+        if (result.completed.length > 0) {
+          typedKanaCountRef.current += result.completed.length;
+        }
+
         if (isComplete(result.state)) {
+          void store.recordWordTyped(activeWords[wordIndex]).catch(() => {
+            // 保存に失敗しても画面の動作は止めない
+          });
           playWordCompleteSound(effectiveVolume);
           scheduleNextWord(wordIndex);
         } else if (result.completed.length > 0) {
@@ -222,7 +264,7 @@ export function LessonScreen({
         playWrongKeySound(effectiveVolume);
       }
     },
-    [effectiveVolume, flashKey, matcher, scheduleNextWord, triggerShake, wordIndex],
+    [activeWords, effectiveVolume, flashKey, matcher, scheduleNextWord, store, triggerShake, wordIndex],
   );
 
   const handleKeyInputRef = useRef(handleKeyInput);
@@ -277,7 +319,7 @@ export function LessonScreen({
   const handleToggleSound = () => {
     const next = !soundOn;
     setSoundOn(next);
-    void progressStore.updateSettings({ soundOn: next }).catch(() => {
+    void store.updateSettings({ soundOn: next }).catch(() => {
       // 保存に失敗しても画面の動作は止めない
     });
   };
@@ -318,7 +360,7 @@ export function LessonScreen({
           >
             {soundOn ? 'おと ON' : 'おと OFF'}
           </button>
-          <button type="button" className="button" onClick={onFinish}>
+          <button type="button" className="button" onClick={finishLesson}>
             おわる
           </button>
         </div>
