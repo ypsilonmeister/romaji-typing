@@ -127,6 +127,47 @@ button:focus-visible {
   font-size: clamp(3rem, 12dvh, 6rem);
 }
 
+/* ---- 保護者ゲート ---- */
+
+.history {
+  inline-size: min(100%, 40rem);
+}
+
+.history-scroll {
+  max-block-size: 45dvh;
+  overflow-y: auto;
+  margin-block-start: 0.5rem;
+}
+
+.history table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.history th,
+.history td {
+  padding: 0.35rem 0.5rem;
+  border-block-end: 1px solid var(--line);
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.history th:first-child,
+.history td:first-child {
+  text-align: start;
+}
+
+.history th {
+  position: sticky;
+  inset-block-start: 0;
+  background: var(--surface);
+}
+
+.history-scroll:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* ---- モード選択 ---- */
 
 .screen-menu {
