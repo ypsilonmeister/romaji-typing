@@ -46,6 +46,8 @@ export interface SpeechSynthesisLike {
 export interface VoicePlayOptions {
   /** 要求時点から再生開始までの最小待機時間（ミリ秒）。先行音声の終了後も残り時間があれば待機し、完成音との重なりを避ける。 */
   readonly delayMs?: number;
+  /** 録音が無い場合にブラウザ読み上げ（speechSynthesis）へフォールバックするか（既定 true）。 */
+  readonly allowTtsFallback?: boolean;
 }
 
 export interface VoicePlayer {
@@ -69,6 +71,8 @@ export interface CreateVoicePlayerOptions {
   readonly createUtterance?: (text: string) => SpeechUtteranceLike | null;
   /** ブラウザ読み上げの再生速度（既定 0.9: 子ども向けに少しゆっくり）。 */
   readonly ttsRate?: number;
+  /** 初回 getVoices() が空だったときに voiceschanged を待つ上限時間（ミリ秒、既定 500）。 */
+  readonly voiceLoadTimeoutMs?: number;
   /**
    * 再生中に後続リクエストが来たときの基準待機上限（既定 3、0 でキュー無効）。
    * 満杯時は古い単語読み上げから破棄する。
@@ -94,6 +98,7 @@ interface QueueEntry {
 const DEFAULT_MAX_QUEUE_SIZE = 3;
 export const DEFAULT_TTS_LANG = 'ja-JP';
 export const DEFAULT_TTS_RATE = 0.9;
+export const DEFAULT_VOICE_LOAD_TIMEOUT_MS = 500;
 
 function nowMs(): number {
   if (typeof performance !== 'undefined' && typeof performance.now === 'function') {
@@ -198,6 +203,10 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
   const baseUrl = options.baseUrl;
   const createAudio = options.createAudio ?? defaultCreateAudio;
   const ttsRate = options.ttsRate ?? DEFAULT_TTS_RATE;
+  const voiceLoadTimeoutMs = Math.max(
+    0,
+    options.voiceLoadTimeoutMs ?? DEFAULT_VOICE_LOAD_TIMEOUT_MS,
+  );
   const maxQueueSize = Math.max(0, options.maxQueueSize ?? DEFAULT_MAX_QUEUE_SIZE);
 
   let currentAudio: AudioLike | null = null;
@@ -205,6 +214,7 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
   let currentSpeechSynth: SpeechSynthesisLike | null = null;
   let detachCurrent: (() => void) | null = null;
   let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  let cancelPendingVoiceWait: (() => void) | null = null;
   let attachedSynth: SpeechSynthesisLike | null = null;
   let cachedJaVoice: SpeechSynthesisVoiceLike | null = null;
   const queue: QueueEntry[] = [];
@@ -236,14 +246,19 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
     return defaultCreateUtterance(text);
   }
 
-  function refreshVoices(synth: SpeechSynthesisLike): SpeechSynthesisVoiceLike | null {
+  function readVoices(synth: SpeechSynthesisLike): readonly SpeechSynthesisVoiceLike[] | null {
     try {
       const voices = synth.getVoices();
-      if (Array.isArray(voices) && voices.length > 0) {
-        cachedJaVoice = selectJapaneseVoice(voices);
-      }
+      return Array.isArray(voices) ? voices : null;
     } catch {
-      // 声一覧の取得に失敗しても lang="ja-JP" 指定で続行する
+      return null;
+    }
+  }
+
+  function refreshVoices(synth: SpeechSynthesisLike): SpeechSynthesisVoiceLike | null {
+    const voices = readVoices(synth);
+    if (voices && voices.length > 0) {
+      cachedJaVoice = selectJapaneseVoice(voices);
     }
     return cachedJaVoice;
   }
@@ -274,7 +289,12 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
   }
 
   function isBusy(): boolean {
-    return currentAudio !== null || currentSpeech !== null || pendingTimer !== null;
+    return (
+      currentAudio !== null ||
+      currentSpeech !== null ||
+      pendingTimer !== null ||
+      cancelPendingVoiceWait !== null
+    );
   }
 
   function cleanupCurrent(): void {
@@ -348,14 +368,8 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
     }
   }
 
-  function startSpeechPlayback(text: string): void {
-    const synth = getSpeechSynthesis();
-    if (!synth) {
-      advanceQueue();
-      return;
-    }
-    ensureSynthInitialized(synth);
-    const voice = cachedJaVoice ?? refreshVoices(synth);
+  function speakWithCurrentVoices(synth: SpeechSynthesisLike, text: string): void {
+    const voice = refreshVoices(synth);
     const utterance = buildUtterance(text);
     if (!utterance) {
       advanceQueue();
@@ -401,6 +415,84 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
     } catch {
       onDone();
     }
+  }
+
+  function startSpeechPlayback(text: string): void {
+    const synth = getSpeechSynthesis();
+    if (!synth) {
+      advanceQueue();
+      return;
+    }
+    ensureSynthInitialized(synth);
+    const voices = readVoices(synth);
+    if (voices && voices.length > 0) {
+      cachedJaVoice = selectJapaneseVoice(voices);
+      speakWithCurrentVoices(synth, text);
+      return;
+    }
+
+    if (
+      voices &&
+      voices.length === 0 &&
+      cachedJaVoice === null &&
+      voiceLoadTimeoutMs > 0 &&
+      typeof synth.addEventListener === 'function'
+    ) {
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanupWait = () => {
+        if (timer !== null) {
+          clearTimeout(timer);
+          timer = null;
+        }
+        if (typeof synth.removeEventListener === 'function') {
+          try {
+            synth.removeEventListener('voiceschanged', onVoicesChanged);
+          } catch {
+            // 無視
+          }
+        }
+        if (cancelPendingVoiceWait === cancelWait) {
+          cancelPendingVoiceWait = null;
+        }
+      };
+
+      const cancelWait = () => {
+        if (settled) return;
+        settled = true;
+        cleanupWait();
+      };
+
+      const finishWait = () => {
+        if (settled) return;
+        settled = true;
+        cleanupWait();
+        speakWithCurrentVoices(synth, text);
+      };
+
+      const onVoicesChanged = () => {
+        if (settled) return;
+        const nextVoices = readVoices(synth);
+        if (nextVoices && nextVoices.length > 0) {
+          cachedJaVoice = selectJapaneseVoice(nextVoices);
+          finishWait();
+        }
+      };
+
+      cancelPendingVoiceWait = cancelWait;
+      try {
+        synth.addEventListener('voiceschanged', onVoicesChanged);
+      } catch {
+        cancelWait();
+        speakWithCurrentVoices(synth, text);
+        return;
+      }
+      timer = setTimeout(finishWait, voiceLoadTimeoutMs);
+      return;
+    }
+
+    speakWithCurrentVoices(synth, text);
   }
 
   function startPlayback(payload: QueuePayload): void {
@@ -480,6 +572,8 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
         return enqueue({ type: 'audio', url: resolveVoiceUrl(path, baseUrl) }, 'word', playOptions);
       }
 
+      if (playOptions?.allowTtsFallback === false) return false;
+
       const trimmedWord = word.trim();
       if (trimmedWord.length === 0) return false;
 
@@ -497,6 +591,10 @@ export function createVoicePlayer(options: CreateVoicePlayerOptions = {}): Voice
       if (pendingTimer !== null) {
         clearTimeout(pendingTimer);
         pendingTimer = null;
+      }
+      if (cancelPendingVoiceWait !== null) {
+        cancelPendingVoiceWait();
+        cancelPendingVoiceWait = null;
       }
       queue.length = 0;
       const audio = currentAudio;

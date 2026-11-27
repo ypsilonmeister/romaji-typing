@@ -16,6 +16,7 @@ import { DEFAULT_SETTINGS, progressStore, type Settings } from '../progress';
 import { EndScreen } from '../screens/EndScreen';
 import { LessonScreen } from '../screens/LessonScreen';
 import { ParentGateScreen } from '../screens/ParentGateScreen';
+import { ShiritoriScreen } from '../screens/ShiritoriScreen';
 
 class MockAudio implements AudioLike {
   readonly src: string;
@@ -656,5 +657,48 @@ describe('ブラウザ読み上げフォールバックと保護者設定（Issu
     await waitFor(async () => {
       expect((await progressStore.getSettings()).voiceOn).toBe(false);
     });
+  });
+
+  it('しりとりの入場直後の開始語は録音のみとし、未登録語でも speechSynthesis を呼ばず、単語完成時は読み上げる', async () => {
+    const audios: MockAudio[] = [];
+    const synth = new MockSpeechSynthesis();
+    const player = createVoicePlayer({
+      manifest: TEST_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new MockAudio(url);
+        audios.push(audio);
+        return audio;
+      },
+      speechSynthesis: synth,
+      createUtterance: (text) => new MockUtterance(text),
+    });
+
+    render(
+      <ShiritoriScreen
+        dictionary={['そら', 'らっぱ', 'ぱんだ']}
+        random={() => 0}
+        appResponseDelayMs={50}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    // 設定読み込み完了後も、録音未登録の開始語「そら」では speechSynthesis が呼ばれない
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).voiceOn).toBe(true);
+    });
+    expect(audios).toHaveLength(0);
+    expect(synth.spoken).toHaveLength(0);
+
+    // 子どもが「らっぱ」（録音未登録）を完成して決定すると speechSynthesis で読み上げる
+    vi.useFakeTimers();
+    for (const key of ['r', 'a', 'p', 'p', 'a', 'Enter']) {
+      fireEvent.keyDown(window, { key });
+    }
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS);
+    });
+    expect(synth.spoken.map((u) => u.text)).toEqual(['らっぱ']);
   });
 });
