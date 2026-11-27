@@ -1,7 +1,8 @@
 // テーマ別単語パック（仕様 v0.3 詳細仕様 §5）。
 // 語はひらがな表記（長音「ー」を含む語も対象）とし、ローマ字は §5 の推奨綴り表記に合わせる。
 
-import { createMatcher } from '../core/matcher';
+import { createMatcher, isComplete, pressKey } from '../core/matcher';
+import { allowsSingleN } from '../core/romajiTable';
 
 export type ThemeId =
   | 'space'
@@ -668,7 +669,7 @@ export function getThemePack(themeId: ThemeId): ThemePack | undefined {
 
 /**
  * 「テーマで あそぶ」の既定お題（17語）。
- * 長音「ー」を含む語（Issue #21）と、既存テーマの追加語・新テーマ7つの語を含め、
+ * 長音「ー」を含む語（Issue #21）と、既存テーマの追加語・新テーマ7つの代表語を含め、
  * 全14テーマからバランスよく出題する。
  */
 export const DEFAULT_THEME_WORDS: readonly string[] = [
@@ -706,5 +707,48 @@ export function romajiForWord(kana: string): string {
     return matcher.units.map((unit) => unit.options[0]?.romaji ?? '').join('');
   } catch {
     return '';
+  }
+}
+
+/**
+ * 指定したローマ字表記を照合エンジンへ1文字ずつ入力して完成できるかを返す。
+ */
+export function isRomajiTypable(kana: string, romaji: string): boolean {
+  if (!romaji) return false;
+  try {
+    let state = createMatcher(kana);
+    for (const ch of romaji) {
+      const result = pressKey(state, ch);
+      if (!result.accepted) return false;
+      state = result.state;
+    }
+    return isComplete(state);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * レッスン（照合エンジン §2.3）でそのまま打ち切れるローマ字表記を返す。
+ * 通常は §5 の表記（romajiForWord）と同じだが、ら行・わ行の前の「ん」など
+ * §2.3 で nn が必須な語では nn を補った綴りを返す。
+ */
+export function lessonRomajiForWord(kana: string): string {
+  const base = romajiForWord(kana);
+  if (base && isRomajiTypable(kana, base)) return base;
+  try {
+    const matcher = createMatcher(kana);
+    return matcher.units
+      .map((unit, index) => {
+        if (unit.kana === 'ん') {
+          const next = matcher.units[index + 1]?.kana;
+          const isOnly = matcher.units.length === 1;
+          return allowsSingleN(next, isOnly) ? 'n' : 'nn';
+        }
+        return unit.options[0]?.romaji ?? '';
+      })
+      .join('');
+  } catch {
+    return base;
   }
 }

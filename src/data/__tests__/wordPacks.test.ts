@@ -2,7 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import specMarkdown from '../../../spec-v0.3-detail.md?raw';
 import { createMatcher, guideKey, isComplete, pressKey } from '../../core/matcher';
-import { DEFAULT_THEME_WORDS, PACK_KANA_SET, romajiForWord, THEME_PACKS } from '../wordPacks';
+import {
+  DEFAULT_THEME_WORDS,
+  isRomajiTypable,
+  lessonRomajiForWord,
+  PACK_KANA_SET,
+  romajiForWord,
+  THEME_PACKS,
+} from '../wordPacks';
 
 /** §5 では単一 n 表記だが §2.3 では ら行・わ行 の前で nn を要求する語。 */
 const SPEC_SECTION5_SINGLE_N_EXCEPTIONS = new Set(['せんろ', 'さんりんしゃ', 'でんわ']);
@@ -123,7 +130,24 @@ describe('テーマ別単語パック（仕様 v0.3 §5）', () => {
     expect(romajiForWord('あい')).toBe('ai');
   });
 
-  it('DEFAULT_THEME_WORDS は全14テーマを網羅し、Issue #21 の追加7語と Issue #27 の新テーマ語・追加語をすべて含む', () => {
+  it('lessonRomajiForWord は全537語で照合エンジンにそのまま打ち切れる綴りを返す', () => {
+    expect(lessonRomajiForWord('せんろ')).toBe('sennro');
+    expect(lessonRomajiForWord('さんりんしゃ')).toBe('sannrinsha');
+    expect(lessonRomajiForWord('でんわ')).toBe('dennwa');
+    expect(lessonRomajiForWord('ほし')).toBe('hoshi');
+
+    for (const pack of THEME_PACKS) {
+      for (const word of pack.words) {
+        const typable = lessonRomajiForWord(word.kana);
+        expect(
+          isRomajiTypable(word.kana, typable),
+          `${pack.name}/${word.kana} の lessonRomaji (${typable}) が照合エンジンで完成しなかった`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('DEFAULT_THEME_WORDS は全14テーマを網羅し、Issue #21 の追加7語と Issue #27 の既存テーマ追加語・新テーマ7つの代表語を含む', () => {
     expect(DEFAULT_THEME_WORDS).toHaveLength(17);
     for (const kana of DEFAULT_THEME_WORDS) {
       expect(PACK_KANA_SET.has(kana), `${kana} が PACK_KANA_SET に存在しない`).toBe(true);

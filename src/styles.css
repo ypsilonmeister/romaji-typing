@@ -251,6 +251,14 @@ button:focus-visible {
   letter-spacing: 0.04em;
 }
 
+.zukan-romaji-lesson {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  letter-spacing: 0.03em;
+}
+
 .history {
   inline-size: min(100%, 40rem);
 }
@@ -366,9 +374,9 @@ button:focus-visible {
 .theme-list {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.5rem;
+  gap: 0.45rem;
   inline-size: 100%;
-  max-inline-size: 78rem;
+  max-inline-size: 82rem;
 }
 
 @media (max-width: 1024px) {
@@ -381,9 +389,9 @@ button:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.25rem;
   min-block-size: 2.5rem;
-  padding: 0.3rem 0.65rem;
+  padding: 0.3rem 0.5rem;
   border: 2px solid var(--accent);
   border-radius: 0.75rem;
   background: var(--surface);
