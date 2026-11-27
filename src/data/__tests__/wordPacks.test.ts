@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import specMarkdown from '../../../spec-v0.3-detail.md?raw';
 import { createMatcher, guideKey, isComplete, pressKey } from '../../core/matcher';
-import { romajiForWord, THEME_PACKS } from '../wordPacks';
+import { DEFAULT_THEME_WORDS, PACK_KANA_SET, romajiForWord, THEME_PACKS } from '../wordPacks';
 
 /** §5 では単一 n 表記だが §2.3 では ら行 の前で nn を要求する語。 */
 const SPEC_SECTION5_SINGLE_N_BEFORE_R = new Set(['せんろ']);
@@ -110,5 +110,24 @@ describe('テーマ別単語パック（仕様 v0.3 §5）', () => {
     expect(romajiForWord('けーき')).toBe('ke-ki');
     expect(romajiForWord('だーくまたー')).toBe('da-kumata-');
     expect(romajiForWord('あさ')).toBe('asa');
+  });
+
+  it('DEFAULT_THEME_WORDS は全語がパックに存在し、Issue #21 の追加7語をすべて含む', () => {
+    expect(DEFAULT_THEME_WORDS).toHaveLength(10);
+    for (const kana of DEFAULT_THEME_WORDS) {
+      expect(PACK_KANA_SET.has(kana), `${kana} が PACK_KANA_SET に存在しない`).toBe(true);
+    }
+    const addedWords = [
+      'だーくまたー',
+      'ぶらっくほーる',
+      'にゅーとりの',
+      'おーすとらりあ',
+      'さっかー',
+      'けーき',
+      'ろけっと',
+    ];
+    for (const word of addedWords) {
+      expect(DEFAULT_THEME_WORDS).toContain(word);
+    }
   });
 });

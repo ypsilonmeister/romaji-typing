@@ -499,7 +499,7 @@ describe('ShiritoriScreen', () => {
   it('長音「ー」を物理キー - と仮想キーボード「ー」ボタンの両方で打てて、末尾正規化が働く', async () => {
     render(
       <ShiritoriScreen
-        dictionary={['あさ', 'さっかー', 'あめ', 'めだか']}
+        dictionary={['あさ', 'さっかー', 'あめ', 'めーたー', 'あり']}
         random={() => 0}
         appResponseDelayMs={50}
         onFinish={vi.fn()}
@@ -514,7 +514,7 @@ describe('ShiritoriScreen', () => {
     expect(keyButton('-').textContent).toBe('ー');
     expect(keyButton('-').dataset.next).toBe('true');
 
-    // 仮想キーボードの「ー」ボタンで「さっかー」を入力して決定
+    // 1. 仮想キーボードの「ー」ボタンで「さっかー」を入力して決定
     typeWord('sakka');
     fireEvent.click(keyButton('-'));
     expect(screen.getByTestId('shiritori-input').textContent).toContain('さっかー');
@@ -528,6 +528,25 @@ describe('ShiritoriScreen', () => {
     await waitFor(() => {
       expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
         'あめ',
+      );
+    });
+
+    // 2. 物理キーボードの '-' キーで「めーたー」を入力して決定
+    typeWord('me');
+    fireEvent.keyDown(window, { key: '-' });
+    typeWord('ta');
+    fireEvent.keyDown(window, { key: '-' });
+    expect(screen.getByTestId('shiritori-input').textContent).toContain('めーたー');
+
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+      'めーたー',
+    );
+
+    // 末尾が「ー」→ 直前「た」の母音「あ」に正規化され、アプリが「あり」を返す
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+        'あり',
       );
     });
   });

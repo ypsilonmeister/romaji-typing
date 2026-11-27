@@ -19,7 +19,7 @@ import {
   pressKey,
   type MatcherState,
 } from '../core/matcher';
-import { THEME_PACKS } from '../data/wordPacks';
+import { DEFAULT_THEME_WORDS } from '../data/wordPacks';
 import { fingerOfKey } from '../lesson/keyboardLayout';
 import type { LessonPrompt } from '../lesson';
 import { SAMPLE_WORDS } from '../lesson/sampleWords';
@@ -30,10 +30,6 @@ const TITLES: Record<LessonMode, string> = {
   stage: 'レッスン',
   theme: 'テーマで あそぶ',
 };
-
-const DEFAULT_THEME_WORDS: readonly string[] = THEME_PACKS[0].words
-  .slice(0, 10)
-  .map((word) => word.kana);
 
 const DEFAULT_HINT_DELAY_MS = 5000;
 const DEFAULT_WORD_TRANSITION_MS = 550;

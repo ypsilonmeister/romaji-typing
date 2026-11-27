@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   window.localStorage.clear();
 });
@@ -82,5 +83,35 @@ describe('画面遷移', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(fail);
     renderAtMenu();
     expect(screen.getByRole('button', { name: /^レッスン/ })).toBeDefined();
+  });
+
+  it('通常の「テーマで あそぶ」入口から長音「ー」を含む語に到達し、物理 - キーで打ち切れる', () => {
+    vi.useFakeTimers();
+    renderAtMenu();
+    click(/^テーマで あそぶ/);
+
+    // 1問目「ほし」を打ち切って次のお題へ進む
+    expect(screen.getByRole('region', { name: 'おだい' }).textContent).toContain('ほし');
+    for (const key of 'hoshi') {
+      fireEvent.keyDown(window, { key });
+    }
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+
+    // 2問目で長音語「けーき」に到達し、'-'（ーボタン）が案内されて打ち切れる
+    expect(screen.getByRole('region', { name: 'おだい' }).textContent).toContain('けーき');
+    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(window, { key: 'e' });
+
+    const longVowelKey = document.querySelector<HTMLButtonElement>('[data-key="-"]');
+    expect(longVowelKey).not.toBeNull();
+    expect(longVowelKey?.textContent).toBe('ー');
+    expect(longVowelKey?.dataset.guide).toBe('true');
+
+    for (const key of '-ki') {
+      fireEvent.keyDown(window, { key });
+    }
+    expect(screen.getByText('できた！')).toBeDefined();
   });
 });
