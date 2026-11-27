@@ -53,6 +53,7 @@ describe('指の割り当て（仕様 v0.3 §3）', () => {
     ['p', 'right-pinky'],
     [';', 'right-pinky'],
     ['/', 'right-pinky'],
+    ['-', 'right-pinky'],
     [' ', 'right-thumb'],
   ] as const)('キー %s は %s に割り当てられる', (key, expectedFinger) => {
     expect(fingerOfKey(key)).toBe(expectedFinger);
@@ -325,5 +326,41 @@ describe('LessonScreen', () => {
       vi.advanceTimersByTime(320);
     });
     expect(typedSection.className).not.toContain('lesson-typed-shake');
+  });
+
+  it('長音「ー」を含む語（けーき）で仮想キーボード「ー」ボタンと右小指を案内し、物理・仮想どちらでも打てる', () => {
+    render(<LessonScreen mode="stage" words={['けーき']} onFinish={vi.fn()} />);
+
+    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(window, { key: 'e' });
+
+    // 次の案内は '-'（仮想キーボードの「ー」ボタン・右小指）
+    const longVowelBtn = keyButton('-');
+    expect(longVowelBtn.textContent).toBe('ー');
+    expect(longVowelBtn.dataset.guide).toBe('true');
+    expect(fingerElement('right-pinky').dataset.active).toBe('true');
+
+    // ヒント表示にも「ー」と「-」が示される
+    fireEvent.click(screen.getByRole('button', { name: 'ヒント' }));
+    const hintText = screen.getByTestId('hint-indicator').textContent ?? '';
+    expect(hintText).toContain('ー');
+    expect(hintText).toContain('-');
+
+    // 仮想キーボードの「ー」ボタンクリックで「ー」が入力できる
+    fireEvent.click(longVowelBtn);
+    expect(keyButton('k').dataset.guide).toBe('true');
+
+    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(window, { key: 'i' });
+    expect(screen.getByText('できた！')).toBeDefined();
+
+    cleanup();
+
+    // 物理キーボードの '-' でも最後まで打てる
+    render(<LessonScreen mode="stage" words={['けーき']} onFinish={vi.fn()} />);
+    for (const key of 'ke-ki') {
+      fireEvent.keyDown(window, { key });
+    }
+    expect(screen.getByText('できた！')).toBeDefined();
   });
 });

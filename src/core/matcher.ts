@@ -55,8 +55,8 @@ export interface KeyResult {
   readonly completed: readonly CompletedKana[];
 }
 
-/** 促音で重ねられない先頭文字。母音と n（nn は「ん」）、小さいかなの x・l 接頭辞。 */
-const NOT_DOUBLABLE = new Set('aiueonxl');
+/** 促音で重ねられない先頭文字。母音と n（nn は「ん」）、小さいかなの x・l 接頭辞、長音の '-'。 */
+const NOT_DOUBLABLE = new Set('aiueonxl-');
 
 /** かなの打ち始めになりうるキー。推奨の打ち方があれば、そのキーが先。 */
 function firstKeys(unit: Unit): string[] {

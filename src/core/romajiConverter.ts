@@ -27,8 +27,8 @@ export interface ConverterKeyResult {
   readonly completed: readonly string[];
 }
 
-/** 促音で重ねられない先頭文字。母音と n（nn は「ん」）、小さいかなの x・l 接頭辞。 */
-const NOT_DOUBLABLE = new Set('aiueonxl');
+/** 促音で重ねられない先頭文字。母音と n（nn は「ん」）、小さいかなの x・l 接頭辞、長音の '-'。 */
+const NOT_DOUBLABLE = new Set('aiueonxl-');
 
 /** 母音。n の直後に来ると な行（な・に・ぬ・ね・の）になる。 */
 const VOWELS = new Set('aiueo');
@@ -184,9 +184,17 @@ export function pressConverterKey(state: ConverterState, key: string): Converter
     };
   }
 
-  // 4. 「ん」の解決: 自由入力の仕様として、n の直後が母音・y・n 以外の開始可能文字（r・w を含む）なら
-  // 「ん」を確定して新バッファを開始する（レッスン照合の allowsSingleN より許容範囲を広げる意図的な仕様）。
+  // 4. 「ん」の解決: 自由入力の仕様として、n の直後が母音・y・n 以外の開始可能文字（r・w・'-' を含む）なら
+  // 「ん」を確定する。続く文字が1打で完結する文字（'-' → 'ー'）なら同時に確定し、そうでなければ新バッファを開始する。
   if (buffer === 'n' && START_KEYS.has(ch) && !VOWELS.has(ch) && ch !== 'y' && ch !== 'n') {
+    const exactAfterN = ROMAJI_TO_KANA.get(ch);
+    if (exactAfterN !== undefined && !PREFIX_NEXT_KEYS.has(ch)) {
+      return {
+        state: { kana: [...state.kana, 'ん', exactAfterN], buffer: '' },
+        accepted: true,
+        completed: ['ん', exactAfterN],
+      };
+    }
     return {
       state: { kana: [...state.kana, 'ん'], buffer: ch },
       accepted: true,

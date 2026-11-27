@@ -188,7 +188,28 @@ describe('自由入力コンバータ: Backspace', () => {
 });
 
 describe('自由入力コンバータ: 無効キーと次に打てるキー', () => {
-  it.each(['q', 'v', '1', ' ', '-', 'Shift', 'Enter', 'Backspace', ''])(
+  it('長音キー - から「ー」が即座に確定し、語中や「ん」の直後・Backspace も正しく動く', () => {
+    const single = pressConverterKey(createConverter(), '-');
+    expect(single).toEqual({
+      state: { kana: ['ー'], buffer: '' },
+      accepted: true,
+      completed: ['ー'],
+    });
+    expect(convertedText(typeKeys('ke-ki'))).toBe('けーき');
+    expect(convertedText(typeKeys('da-kumata-'))).toBe('だーくまたー');
+    expect(backspaceConverter(typeKeys('ke-'))).toEqual({ kana: ['け'], buffer: '' });
+
+    // n の直後に - を打つと「ん」と「ー」が同時に確定してバッファが空になる
+    const afterN = typeKeys('n');
+    const afterHyphen = pressConverterKey(afterN, '-');
+    expect(afterHyphen).toEqual({
+      state: { kana: ['ん', 'ー'], buffer: '' },
+      accepted: true,
+      completed: ['ん', 'ー'],
+    });
+  });
+
+  it.each(['q', 'v', '1', ' ', 'Shift', 'Enter', 'Backspace', ''])(
     '変換できないキー「%s」は受け付けず状態を保つ',
     (key) => {
       const start = createConverter();
@@ -205,7 +226,7 @@ describe('自由入力コンバータ: 無効キーと次に打てるキー', ()
   });
 
   it('全到達バッファで nextConverterKeys と pressConverterKey.accepted が完全一致し、行き止まりがない', () => {
-    const alphabet = [...'abcdefghijklmnopqrstuvwxyz'];
+    const alphabet = [...'abcdefghijklmnopqrstuvwxyz-'];
     const visited = new Set<string>();
     const queue: string[] = [''];
     const failures: string[] = [];
