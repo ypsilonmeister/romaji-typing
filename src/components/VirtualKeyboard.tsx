@@ -1,4 +1,54 @@
+import type { CSSProperties } from 'react';
 import { FINGER_GROUP, KEYBOARD_ROWS, type KeySpec } from '../lesson/keyboardLayout';
+
+/** 行ごとの左オフセット（通常キー幅 = 1 に対する倍率）。 */
+export const KEYBOARD_ROW_STAGGERS: readonly number[] = [0, 0.35, 0.85, 0];
+
+/** キー間ギャップの通常キー幅に対する比率。 */
+export const KEY_GAP_RATIO = 0.1;
+
+/** 境界・発光リング用の余白（キー単位）。 */
+const WIDTH_SAFETY_MARGIN = 0.2;
+const HEIGHT_SAFETY_MARGIN = 0.1;
+
+export interface KeyboardGeometry {
+  /** 最も広い行の横幅（キー単位、余白なし）。 */
+  readonly contentWidthUnits: number;
+  /** 利用可能幅からキーサイズを求める際の分母（余白込み）。 */
+  readonly widthUnits: number;
+  /** 利用可能高さからキーサイズを求める際の分母（余白込み）。 */
+  readonly heightUnits: number;
+}
+
+/** キーボード全体の幅・高さを通常キー1辺あたりの単位数で計算する。 */
+export function computeKeyboardGeometry(
+  rows: readonly (readonly KeySpec[])[],
+  rowStaggers: readonly number[] = KEYBOARD_ROW_STAGGERS,
+  gapRatio: number = KEY_GAP_RATIO,
+): KeyboardGeometry {
+  let contentWidthUnits = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const keysWidth = row.reduce((sum, spec) => sum + (spec.width ?? 1), 0);
+    const gapsWidth = Math.max(0, row.length - 1) * gapRatio;
+    const stagger = rowStaggers[i] ?? 0;
+    const rowWidth = stagger + keysWidth + gapsWidth;
+    if (rowWidth > contentWidthUnits) {
+      contentWidthUnits = rowWidth;
+    }
+  }
+
+  const rowCount = rows.length;
+  const contentHeightUnits = rowCount + Math.max(0, rowCount - 1) * gapRatio;
+
+  return {
+    contentWidthUnits: Number(contentWidthUnits.toFixed(4)),
+    widthUnits: Number((contentWidthUnits + WIDTH_SAFETY_MARGIN).toFixed(4)),
+    heightUnits: Number((contentHeightUnits + HEIGHT_SAFETY_MARGIN).toFixed(4)),
+  };
+}
+
+const KEYBOARD_GEOMETRY = computeKeyboardGeometry(KEYBOARD_ROWS);
 
 export interface VirtualKeyboardProps {
   /** 照合エンジンが案内する次に押すキー（小文字）。 */
@@ -62,7 +112,7 @@ export function VirtualKeyboard({
         type="button"
         tabIndex={-1}
         className={classes}
-        style={spec.width ? { flexGrow: spec.width } : undefined}
+        style={spec.width ? ({ '--key-span': spec.width } as CSSProperties) : undefined}
         data-key={spec.code}
         data-finger={fingerGroup ?? ''}
         data-guide={isGuide ? 'true' : undefined}
@@ -78,14 +128,28 @@ export function VirtualKeyboard({
     );
   }
 
+  const rowsStyle = {
+    '--kb-content-width-units': KEYBOARD_GEOMETRY.contentWidthUnits,
+    '--kb-width-units': KEYBOARD_GEOMETRY.widthUnits,
+    '--kb-height-units': KEYBOARD_GEOMETRY.heightUnits,
+    '--kb-gap-ratio': KEY_GAP_RATIO,
+  } as CSSProperties;
+
   return (
     <section className="lesson-keyboard keyboard-panel" aria-label="キーボード">
-      <div className="kb-rows">
-        {KEYBOARD_ROWS.map((row, rowIndex) => (
-          <div key={rowIndex} className={`kb-row kb-row-${rowIndex}`}>
-            {row.map(renderKey)}
-          </div>
-        ))}
+      <div className="kb-stage">
+        <div className="kb-rows" style={rowsStyle}>
+          {KEYBOARD_ROWS.map((row, rowIndex) => {
+            const stagger = KEYBOARD_ROW_STAGGERS[rowIndex] ?? 0;
+            const rowStyle =
+              stagger > 0 ? ({ '--kb-row-stagger': stagger } as CSSProperties) : undefined;
+            return (
+              <div key={rowIndex} className={`kb-row kb-row-${rowIndex}`} style={rowStyle}>
+                {row.map(renderKey)}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
