@@ -149,7 +149,7 @@ export function ShiritoriScreen({
         voiceOnRef.current = settings.voiceOn;
         if (settings.voiceOn && !initialVoicePlayedRef.current && initialWordRef.current) {
           initialVoicePlayedRef.current = true;
-          voice.playWord(initialWordRef.current);
+          voice.playWord(initialWordRef.current, { allowTtsFallback: false });
         }
       })
       .catch(() => {
@@ -157,7 +157,7 @@ export function ShiritoriScreen({
         voiceOnRef.current = DEFAULT_SETTINGS.voiceOn;
         if (DEFAULT_SETTINGS.voiceOn && !initialVoicePlayedRef.current && initialWordRef.current) {
           initialVoicePlayedRef.current = true;
-          voice.playWord(initialWordRef.current);
+          voice.playWord(initialWordRef.current, { allowTtsFallback: false });
         }
       });
     return () => {
