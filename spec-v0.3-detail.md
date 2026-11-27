@@ -146,31 +146,53 @@
 - 解放条件: そのレッスンの新しい要素を、案内ありで一通り打てたら次へ進める。案内なしの習熟は、その後のレッスンに混ざって自然に判定する（§6 の定着度）。
 - テーマ別単語（§5）は Stage E 到達後に全開する。それまでは、そのステージまでの文字で打てる単語だけを出す。
 
-## 5. テーマ別単語パック
+## 5. テーマ別単語パック（14テーマ・537語）
 
 Step 4「ことば」用。語はひらがな表記（長音「ー」を含む語も対象）とし、ローマ字は推奨綴り（長音は `-`）で書く。
 各パックの単語は、到達ステージまでの文字で打てるものだけがレッスンに出る（§4.3）。全開は Stage E 到達後。
+かなの重複はテーマをまたいでも持たない（`wordId = かな` のため）。
 
 ### 5.1 宇宙
-ほし(hoshi)、つき(tsuki)、たいよう(taiyou)、ちきゅう(chikyuu)、かせい(kasei)、きんせい(kinsei)、すいせい(suisei)、もくせい(mokusei)、どせい(dosei)、わくせい(wakusei)、うちゅう(uchuu)、ぎんが(ginga)、せいざ(seiza)、ながれぼし(nagareboshi)、いんせき(inseki)、えいせい(eisei)、じゅうりょく(juuryoku)、あまのがわ(amanogawa)、ほしぞら(hoshizora)、つきよ(tsukiyo)、そら(sora)、よる(yoru)、ひかり(hikari)、かげ(kage)、だーくまたー(da-kumata-)、ぶらっくほーる(burakkuho-ru)、にゅーとりの(nyu-torino)
+ほし(hoshi)、つき(tsuki)、たいよう(taiyou)、ちきゅう(chikyuu)、かせい(kasei)、きんせい(kinsei)、すいせい(suisei)、もくせい(mokusei)、どせい(dosei)、わくせい(wakusei)、うちゅう(uchuu)、ぎんが(ginga)、せいざ(seiza)、ながれぼし(nagareboshi)、いんせき(inseki)、えいせい(eisei)、じゅうりょく(juuryoku)、あまのがわ(amanogawa)、ほしぞら(hoshizora)、つきよ(tsukiyo)、そら(sora)、よる(yoru)、ひかり(hikari)、かげ(kage)、だーくまたー(da-kumata-)、ぶらっくほーる(burakkuho-ru)、にゅーとりの(nyu-torino)、てんのうせい(tennnousei)、かいおうせい(kaiousei)、めいおうせい(meiousei)、ぼうえんきょう(bouenkyou)、むげん(mugen)、うず(uzu)、うずまき(uzumaki)、はんぶん(hanbun)、くうき(kuuki)、うちゅうせん(uchuusen)
 
 ### 5.2 植物
-はな(hana)、はっぱ(happa)、はなびら(hanabira)、き(ki)、たね(tane)、め(me)、ねっこ(nekko)、くさ(kusa)、もり(mori)、はやし(hayashi)、さくら(sakura)、たんぽぽ(tanpopo)、ひまわり(himawari)、あさがお(asagao)、すみれ(sumire)、もみじ(momiji)、いちょう(ichou)、まつ(matsu)、たけ(take)、うめ(ume)、ふじ(fuji)、かえで(kaede)、どんぐり(donguri)、わかば(wakaba)、つぼみ(tsubomi)
+はな(hana)、はっぱ(happa)、はなびら(hanabira)、き(ki)、たね(tane)、め(me)、ねっこ(nekko)、くさ(kusa)、もり(mori)、はやし(hayashi)、さくら(sakura)、たんぽぽ(tanpopo)、ひまわり(himawari)、あさがお(asagao)、すみれ(sumire)、もみじ(momiji)、いちょう(ichou)、まつ(matsu)、たけ(take)、うめ(ume)、ふじ(fuji)、かえで(kaede)、どんぐり(donguri)、わかば(wakaba)、つぼみ(tsubomi)、ふていが(futeiga)、まつぼっくり(matsubokkuri)、すぎ(sugi)、けやき(keyaki)、つばき(tsubaki)
 
 ### 5.3 地理
-やま(yama)、かわ(kawa)、うみ(umi)、しま(shima)、みずうみ(mizuumi)、さばく(sabaku)、たに(tani)、ぬま(numa)、いけ(ike)、すな(suna)、しお(shio)、なみ(nami)、みなと(minato)、はんとう(hantou)、かざん(kazan)、たき(taki)、どうくつ(doukutsu)、こうげん(kougen)、へいや(heiya)、がけ(gake)、すなはま(sunahama)、ちず(chizu)、さわ(sawa)、おーすとらりあ(o-sutoraria)
+やま(yama)、かわ(kawa)、うみ(umi)、しま(shima)、みずうみ(mizuumi)、さばく(sabaku)、たに(tani)、ぬま(numa)、いけ(ike)、すな(suna)、なみ(nami)、みなと(minato)、はんとう(hantou)、かざん(kazan)、たき(taki)、どうくつ(doukutsu)、こうげん(kougen)、へいや(heiya)、がけ(gake)、すなはま(sunahama)、ちず(chizu)、さわ(sawa)、おーすとらりあ(o-sutoraria)、ほっかいどう(hokkaidou)、あおもり(aomori)、いわて(iwate)、みやぎ(miyagi)、あきた(akita)、やまがた(yamagata)、ふくしま(fukushima)、いばらき(ibaraki)、とちぎ(tochigi)、ぐんま(gunma)、さいたま(saitama)、ちば(chiba)、かながわ(kanagawa)、にいがた(niigata)、とやま(toyama)、いしかわ(ishikawa)、ふくい(fukui)、やまなし(yamanashi)、ぎふ(gifu)、しずおか(shizuoka)、あいち(aichi)、みえ(mie)、しが(shiga)、ひょうご(hyougo)、なら(nara)、わかやま(wakayama)、とっとり(tottori)、しまね(shimane)、おかやま(okayama)、ひろしま(hiroshima)、やまぐち(yamaguchi)、とくしま(tokushima)、かがわ(kagawa)、えひめ(ehime)、こうち(kouchi)、ふくおか(fukuoka)、さが(saga)、ながさき(nagasaki)、くまもと(kumamoto)、おおいた(ooita)、みやざき(miyazaki)、かごしま(kagoshima)、おきなわ(okinawa)、あめりか(amerika)、いぎりす(igirisu)、ふらんす(furansu)、どいつ(doitsu)、いたりあ(itaria)、すぺいん(supein)、おらんだ(oranda)、すいす(suisu)、ぎりしゃ(girisha)、とるこ(toruko)、かんこく(kankoku)、ちゅうごく(chuugoku)、ろしあ(roshia)、いんど(indo)、いらん(iran)、たい(tai)、べとなむ(betonamu)、えじぷと(ejiputo)、けにあ(kenia)、ぶらじる(burajiru)、かなだ(kanada)、めきしこ(mekishiko)、あるぜんちん(aruzenchin)、ちり(chiri)、さうじあらびあ(saujiarabia)、みなみあふりか(minamiafurika)、とうきょう(toukyou)、おおさか(oosaka)、きょうと(kyouto)、ながの(nagano)、しんしゅう(shinshuu)、にほん(nihon)、せかい(sekai)、くに(kuni)、まち(machi)、むら(mura)、とおり(toori)、みち(michi)
 
 ### 5.4 建築
-いえ(ie)、うち(uchi)、たてもの(tatemono)、はしら(hashira)、かべ(kabe)、やね(yane)、まど(mado)、とびら(tobira)、かいだん(kaidan)、げんかん(genkan)、にわ(niwa)、もん(mon)、てら(tera)、じんじゃ(jinja)、しろ(shiro)、とう(tou)、はし(hashi)、えき(eki)、みせ(mise)、がっこう(gakkou)、こうえん(kouen)、へい(hei)、さっかー(sakka-)
+いえ(ie)、うち(uchi)、たてもの(tatemono)、はしら(hashira)、かべ(kabe)、やね(yane)、まど(mado)、とびら(tobira)、かいだん(kaidan)、げんかん(genkan)、にわ(niwa)、もん(mon)、てら(tera)、じんじゃ(jinja)、しろ(shiro)、とう(tou)、はし(hashi)、えき(eki)、みせ(mise)、がっこう(gakkou)、こうえん(kouen)、へい(hei)、さっかー(sakka-)、けんちく(kenchiku)、じっけん(jikken)、びょういん(byouin)、としょかん(toshokan)、びじゅつかん(bijutsukan)、すいぞくかん(suizokukan)、どうぶつえん(doubutsuen)、ゆうえんち(yuuenchi)、こんびに(konbini)、ぱんや(pannya)、はなや(hanaya)、ほんや(honnya)、くすりや(kusuriya)、ゆうびんきょく(yuubinkyoku)、こうばん(kouban)、しょうぼうしょ(shoubousho)、けいさつしょ(keisatsusho)
 
 ### 5.5 食べ物
-ごはん(gohan)、みそしる(misoshiru)、さかな(sakana)、たまご(tamago)、やさい(yasai)、くだもの(kudamono)、りんご(ringo)、みかん(mikan)、すいか(suika)、もも(momo)、ぶどう(budou)、いちご(ichigo)、なし(nashi)、かき(kaki)、さくらんぼ(sakuranbo)、ぎゅうにゅう(gyuunyuu)、うどん(udon)、そば(soba)、すし(sushi)、みそ(miso)、しょうゆ(shouyu)、さとう(satou)、しお(shio)、えび(ebi)、けーき(ke-ki)
+ごはん(gohan)、みそしる(misoshiru)、さかな(sakana)、たまご(tamago)、やさい(yasai)、くだもの(kudamono)、りんご(ringo)、みかん(mikan)、すいか(suika)、もも(momo)、ぶどう(budou)、いちご(ichigo)、なし(nashi)、かき(kaki)、さくらんぼ(sakuranbo)、ぎゅうにゅう(gyuunyuu)、うどん(udon)、そば(soba)、すし(sushi)、みそ(miso)、しょうゆ(shouyu)、さとう(satou)、しお(shio)、えび(ebi)、けーき(ke-ki)、ぱん(pan)、おにぎり(onigiri)、てんぷら(tenpura)、やきそば(yakisoba)、たこやき(takoyaki)、おこのみやき(okonomiyaki)、ぷりん(purin)、あいす(aisu)、せんべい(senbei)、だんご(dango)、もち(mochi)、とうふ(toufu)、なっとう(nattou)、にく(niku)、とりにく(toriniku)、ぎゅうにく(gyuuniku)、ぶたにく(butaniku)、やきざかな(yakizakana)、さしみ(sashimi)、おちゃ(ocha)、むぎちゃ(mugicha)
 
 ### 5.6 動物
-いぬ(inu)、ねこ(neko)、うま(uma)、うし(ushi)、ぶた(buta)、ひつじ(hitsuji)、やぎ(yagi)、うさぎ(usagi)、ねずみ(nezumi)、とり(tori)、からす(karasu)、すずめ(suzume)、かも(kamo)、つる(tsuru)、かめ(kame)、かえる(kaeru)、へび(hebi)、とかげ(tokage)、ちょう(chou)、あり(ari)、はち(hachi)、くも(kumo)、せみ(semi)、かぶとむし(kabutomushi)、くわがた(kuwagata)、ほたる(hotaru)、ざりがに(zarigani)、ことり(kotori)
+いぬ(inu)、ねこ(neko)、うま(uma)、うし(ushi)、ぶた(buta)、ひつじ(hitsuji)、やぎ(yagi)、うさぎ(usagi)、ねずみ(nezumi)、とり(tori)、からす(karasu)、すずめ(suzume)、かも(kamo)、つる(tsuru)、かめ(kame)、かえる(kaeru)、へび(hebi)、とかげ(tokage)、ちょう(chou)、あり(ari)、はち(hachi)、くも(kumo)、せみ(semi)、かぶとむし(kabutomushi)、くわがた(kuwagata)、ほたる(hotaru)、ざりがに(zarigani)、ことり(kotori)、ぞう(zou)、きりん(kirin)、らいおん(raion)、とら(tora)、くま(kuma)、しか(shika)、さる(saru)、ぱんだ(panda)、こあら(koara)、ぺんぎん(pengin)、いるか(iruka)、くじら(kujira)、さめ(same)、たこ(tako)、いか(ika)、かに(kani)、あひる(ahiru)、ふくろう(fukurou)、たぬき(tanuki)、きつね(kitsune)、おおかみ(ookami)、ひよこ(hiyoko)、にわとり(niwatori)
 
 ### 5.7 のりもの・踏切
-でんしゃ(densha)、ふみきり(fumikiri)、しんごう(shingou)、せんろ(senro)、きしゃ(kisha)、れっしゃ(ressha)、とっきゅう(tokkyuu)、しんかんせん(shinkansen)、ちかてつ(chikatetsu)、ふね(fune)、ひこうき(hikouki)、じてんしゃ(jitensha)、くるま(kuruma)、しょうぼうしゃ(shoubousha)、きゅうきゅうしゃ(kyuukyuusha)、せんすいかん(sensuikan)、ききゅう(kikyuu)、そり(sori)、ろけっと(roketto)
+でんしゃ(densha)、ふみきり(fumikiri)、しんごう(shingou)、せんろ(senro)、きしゃ(kisha)、れっしゃ(ressha)、とっきゅう(tokkyuu)、しんかんせん(shinkansen)、ちかてつ(chikatetsu)、ふね(fune)、ひこうき(hikouki)、じてんしゃ(jitensha)、くるま(kuruma)、しょうぼうしゃ(shoubousha)、きゅうきゅうしゃ(kyuukyuusha)、せんすいかん(sensuikan)、ききゅう(kikyuu)、そり(sori)、ろけっと(roketto)、ばす(basu)、とらっく(torakku)、ばいく(baiku)、いちりんしゃ(ichirinsha)、さんりんしゃ(sanrinsha)、ほどうきょう(hodoukyou)、ちかどう(chikadou)
+
+### 5.8 がっこう
+せんせい(sensei)、きょうしつ(kyoushitsu)、じゅぎょう(jugyou)、しゅくだい(shukudai)、きゅうしょく(kyuushoku)、たいいく(taiiku)、ずこう(zukou)、おんがく(ongaku)、さんすう(sansuu)、こくご(kokugo)、りか(rika)、しゃかい(shakai)、ともだち(tomodachi)、らんどせる(randoseru)、うわばき(uwabaki)、えんぴつ(enpitsu)、けしごむ(keshigomu)、きょうかしょ(kyoukasho)、くれよん(kureyon)、えのぐ(enogu)、はさみ(hasami)、のり(nori)、じょうぎ(jougi)、ぶんぼうぐ(bunbougu)、つくえ(tsukue)、いす(isu)、こくばん(kokuban)、たいそうふく(taisoufuku)、すいとう(suitou)、はんかち(hankachi)、ほうかご(houkago)、つうがく(tsuugaku)、きゅうけい(kyuukei)、うんどうかい(undoukai)、えんそく(ensoku)、にゅうがく(nyuugaku)、くく(kuku)
+
+### 5.9 あそび
+おもちゃ(omocha)、おにごっこ(onigokko)、かくれんぼ(kakurenbo)、なわとび(nawatobi)、すべりだい(suberidai)、ぶらんこ(buranko)、てつぼう(tetsubou)、すなば(sunaba)、まり(mari)、かるた(karuta)、おりがみ(origami)、ぬりえ(nurie)、えほん(ehon)、すごろく(sugoroku)、とらんぷ(toranpu)、ぱずる(pazuru)、つみき(tsumiki)、やきゅう(yakyuu)、たっきゅう(takkyuu)、すいえい(suiei)、はなび(hanabi)、まつり(matsuri)、ゆかた(yukata)、かきごおり(kakigoori)、わたあめ(wataame)、しゃぼんだま(shabondama)、たこあげ(takoage)、こま(koma)、けんだま(kendama)、だるま(daruma)、ふくわらい(fukuwarai)、あやとり(ayatori)、おてだま(otedama)、めんこ(menko)
+
+### 5.10 むし
+てんとうむし(tentoumushi)、とんぼ(tonbo)、かまきり(kamakiri)、ばった(batta)、こおろぎ(koorogi)、すずむし(suzumushi)、かたつむり(katatsumuri)、みみず(mimizu)、だんごむし(dangomushi)、あめんぼ(amenbo)、げんごろう(gengorou)、たがめ(tagame)、あげは(ageha)、もんしろちょう(monshirochou)
+
+### 5.11 天気と季節
+あめ(ame)、ゆき(yuki)、かぜ(kaze)、たいふう(taifuu)、かみなり(kaminari)、にじ(niji)、はれ(hare)、あさ(asa)、ひる(hiru)、ゆうがた(yuugata)、はる(haru)、なつ(natsu)、あき(aki)、ふゆ(fuyu)、つゆ(tsuyu)、こうよう(kouyou)、ゆきだるま(yukidaruma)、こおり(koori)、あられ(arare)、きり(kiri)、ひかげ(hikage)、ひなた(hinata)、かさ(kasa)、ながぐつ(nagagutsu)、てぶくろ(tebukuro)、ぼうし(boushi)
+
+### 5.12 からだ
+あたま(atama)、かお(kao)、みみ(mimi)、くち(kuchi)、は(ha)、て(te)、あし(ashi)、ゆび(yubi)、おなか(onaka)、せなか(senaka)、かみ(kami)、つめ(tsume)、ひざ(hiza)、ひじ(hiji)、かた(kata)、くび(kubi)、むね(mune)、こし(koshi)、ほね(hone)、しんぞう(shinzou)、のう(nou)、きんにく(kinnniku)、ねつ(netsu)、せき(seki)、くしゃみ(kushami)、けが(kega)、ばんそうこう(bansoukou)、くすり(kusuri)、いしゃ(isha)
+
+### 5.13 いえの生活
+おふろ(ofuro)、ふとん(futon)、まくら(makura)、はぶらし(haburashi)、せっけん(sekken)、たおる(taoru)、かがみ(kagami)、つめきり(tsumekiri)、でんき(denki)、れいぞうこ(reizouko)、せんたくき(sentakuki)、そうじき(soujiki)、こたつ(kotatsu)、とけい(tokei)、しんぶん(shinbun)、ほん(hon)、てがみ(tegami)、でんわ(denwa)、かぎ(kagi)、さいふ(saifu)、かばん(kaban)、くつ(kutsu)、くつした(kutsushita)、うわぎ(uwagi)、ずぼん(zubon)、ぱじゃま(pajama)
+
+### 5.14 ふしぎ・りか
+そりゅうし(soryuushi)、でんし(denshi)、ようし(youshi)、ちゅうせいし(chuuseishi)、げんし(genshi)、ぶんし(bunshi)、げんそ(genso)、すいそ(suiso)、へりうむ(heriumu)、たんそ(tanso)、ちっそ(chisso)、さんそ(sanso)、てつ(tetsu)、どう(dou)、きん(kin)、ぎん(gin)、あるみ(arumi)、なまり(namari)、あえん(aen)、すず(suzu)、ねおん(neon)、あるごん(arugon)、うらん(uran)、ぷるとにうむ(purutoniumu)、ひっぐす(higgusu)、あんちぶっしつ(anchibusshitsu)、ぜろ(zero)、ぷらす(purasu)、まいなす(mainasu)、じしゃく(jishaku)、でんち(denchi)、でんきゅう(denkyuu)、おんど(ondo)、きあつ(kiatsu)、おと(oto)、むしめがね(mushimegane)、けんびきょう(kenbikyou)
 
 ## 6. 進捗データ（端末内のみ）
 

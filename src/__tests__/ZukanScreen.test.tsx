@@ -94,13 +94,13 @@ describe('ことば図鑑（仕様 v0.3 §7）', () => {
   });
 
   it('単語パックに含まれない語を打った場合も「そのほか」にかな＋ローマ字で表示される', async () => {
-    await progressStore.recordWordTyped('あさ');
+    await progressStore.recordWordTyped('あい');
 
     render(<ZukanScreen onBack={vi.fn()} />);
 
     const otherHeading = await screen.findByRole('heading', { level: 2, name: 'そのほか' });
     const otherSection = otherHeading.closest('section')!;
-    expect(otherSection.textContent).toContain('あさ');
-    expect(otherSection.textContent).toContain('asa');
+    expect(otherSection.textContent).toContain('あい');
+    expect(otherSection.textContent).toContain('ai');
   });
 });
