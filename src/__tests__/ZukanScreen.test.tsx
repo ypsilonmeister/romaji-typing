@@ -94,13 +94,40 @@ describe('ことば図鑑（仕様 v0.3 §7）', () => {
   });
 
   it('単語パックに含まれない語を打った場合も「そのほか」にかな＋ローマ字で表示される', async () => {
-    await progressStore.recordWordTyped('あさ');
+    await progressStore.recordWordTyped('あい');
 
     render(<ZukanScreen onBack={vi.fn()} />);
 
     const otherHeading = await screen.findByRole('heading', { level: 2, name: 'そのほか' });
     const otherSection = otherHeading.closest('section')!;
-    expect(otherSection.textContent).toContain('あさ');
-    expect(otherSection.textContent).toContain('asa');
+    expect(otherSection.textContent).toContain('あい');
+    expect(otherSection.textContent).toContain('ai');
+  });
+
+  it('§5 表記と §2.3 の入力規則が異なる語（せんろ・さんりんしゃ・でんわ）はレッスンで打てる綴りも併記する', async () => {
+    await progressStore.recordWordTyped('せんろ');
+    await progressStore.recordWordTyped('さんりんしゃ');
+    await progressStore.recordWordTyped('でんわ');
+    await progressStore.recordWordTyped('ほし');
+
+    render(<ZukanScreen onBack={vi.fn()} />);
+
+    const vehiclesHeading = await screen.findByRole('heading', { level: 2, name: 'のりもの・踏切' });
+    const vehiclesSection = vehiclesHeading.closest('section')!;
+    expect(vehiclesSection.textContent).toContain('senro');
+    expect(vehiclesSection.textContent).toContain('うちかた: sennro');
+    expect(vehiclesSection.textContent).toContain('sanrinsha');
+    expect(vehiclesSection.textContent).toContain('うちかた: sannrinsha');
+
+    const homeLifeHeading = screen.getByRole('heading', { level: 2, name: 'いえの生活' });
+    const homeLifeSection = homeLifeHeading.closest('section')!;
+    expect(homeLifeSection.textContent).toContain('denwa');
+    expect(homeLifeSection.textContent).toContain('うちかた: dennwa');
+
+    // §5 表記のまま打てる語には余分な「うちかた:」を出さない
+    const spaceHeading = screen.getByRole('heading', { level: 2, name: '宇宙' });
+    const spaceSection = spaceHeading.closest('section')!;
+    expect(spaceSection.textContent).toContain('hoshi');
+    expect(spaceSection.textContent).not.toContain('うちかた:');
   });
 });

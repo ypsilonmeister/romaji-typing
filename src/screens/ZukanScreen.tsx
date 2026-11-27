@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react';
-import { PACK_KANA_SET, romajiForWord, THEME_PACKS, type WordEntry } from '../data/wordPacks';
+import {
+  lessonRomajiForWord,
+  PACK_KANA_SET,
+  romajiForWord,
+  THEME_PACKS,
+  type WordEntry,
+} from '../data/wordPacks';
 import { progressStore, type ProgressStore, type WordProgress } from '../progress';
 
 export interface ZukanScreenProps {
@@ -102,12 +108,19 @@ export function ZukanScreen({ onBack, store = progressStore }: ZukanScreenProps)
                 {section.name}
               </h2>
               <ul className="zukan-grid">
-                {section.words.map((word) => (
-                  <li key={`${section.id}-${word.kana}`} className="zukan-card">
-                    <span className="zukan-kana">{word.kana}</span>
-                    {word.romaji && <span className="zukan-romaji">{word.romaji}</span>}
-                  </li>
-                ))}
+                {section.words.map((word) => {
+                  const lessonRomaji = lessonRomajiForWord(word.kana);
+                  const showLessonRomaji = Boolean(lessonRomaji && lessonRomaji !== word.romaji);
+                  return (
+                    <li key={`${section.id}-${word.kana}`} className="zukan-card">
+                      <span className="zukan-kana">{word.kana}</span>
+                      {word.romaji && <span className="zukan-romaji">{word.romaji}</span>}
+                      {showLessonRomaji && (
+                        <span className="zukan-romaji-lesson">うちかた: {lessonRomaji}</span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ))}

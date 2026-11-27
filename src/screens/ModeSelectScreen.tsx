@@ -1,3 +1,4 @@
+import { THEME_PACKS, type ThemeId } from '../data/wordPacks';
 import { LESSON_IDS, nextRecommendedStage, STAGES, type StageId } from '../lesson';
 import { isLessonUnlocked } from '../progress';
 import type { LessonMode } from '../screen';
@@ -6,6 +7,7 @@ type Props = {
   clearedLessonIds: ReadonlySet<string>;
   onStartLesson: (mode: LessonMode) => void;
   onStartStage: (stageId: StageId) => void;
+  onStartTheme?: (themeId: ThemeId) => void;
   onStartShiritori: () => void;
   onOpenZukan: () => void;
   onOpenParentGate: () => void;
@@ -16,6 +18,7 @@ export function ModeSelectScreen({
   clearedLessonIds,
   onStartLesson,
   onStartStage,
+  onStartTheme,
   onStartShiritori,
   onOpenZukan,
   onOpenParentGate,
@@ -71,6 +74,20 @@ export function ModeSelectScreen({
             </button>
           );
         })}
+      </section>
+      <section className="theme-list" aria-label="テーマ選択">
+        {THEME_PACKS.map((pack) => (
+          <button
+            key={pack.id}
+            type="button"
+            className="theme-button"
+            onClick={() => onStartTheme?.(pack.id)}
+            data-theme-id={pack.id}
+          >
+            <span className="theme-button-name">{pack.name}</span>
+            <span className="theme-badge">{pack.words.length}語</span>
+          </button>
+        ))}
       </section>
       <button type="button" className="button" onClick={onOpenZukan}>
         ことば図鑑

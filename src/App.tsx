@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { voicePlayer, type VoicePlayer } from './audio/voice';
+import { getThemePack, type ThemeId } from './data/wordPacks';
 import { hasSeenIntro, markIntroSeen } from './introStorage';
 import { generateLesson, nextRecommendedStage, type StageId } from './lesson';
 import { progressStore, type KanaProgress, type ProgressStore } from './progress';
@@ -63,6 +64,10 @@ export function App({ store = progressStore, voice = voicePlayer }: AppProps = {
     [kanaProgress],
   );
 
+  const startTheme = useCallback((themeId: ThemeId) => {
+    setScreen({ name: 'lesson', mode: 'theme', themeId });
+  }, []);
+
   const startLesson = useCallback(
     (mode: LessonMode) => {
       if (mode === 'stage') {
@@ -108,6 +113,7 @@ export function App({ store = progressStore, voice = voicePlayer }: AppProps = {
           clearedLessonIds={clearedLessonIds}
           onStartLesson={startLesson}
           onStartStage={startStage}
+          onStartTheme={startTheme}
           onStartShiritori={() => setScreen({ name: 'shiritori' })}
           onOpenZukan={() => setScreen({ name: 'zukan' })}
           onOpenParentGate={() => setScreen({ name: 'parentGate' })}
@@ -121,16 +127,18 @@ export function App({ store = progressStore, voice = voicePlayer }: AppProps = {
           onFinish={(sessionIdPromise) => setScreen({ name: 'end', sessionIdPromise })}
         />
       );
-    case 'lesson':
+    case 'lesson': {
+      const themePack = screen.themeId ? getThemePack(screen.themeId) : undefined;
       return (
         <LessonScreen
           mode={screen.mode}
+          words={themePack?.words.map((word) => word.kana)}
           prompts={screen.lesson?.prompts}
           lessonId={screen.lesson?.lessonId}
           stageLabel={
             screen.lesson
               ? `Stage ${screen.lesson.stage.code}: ${screen.lesson.stage.title}`
-              : undefined
+              : themePack?.name
           }
           store={store}
           voice={voice}
@@ -138,6 +146,7 @@ export function App({ store = progressStore, voice = voicePlayer }: AppProps = {
           onFinish={(sessionIdPromise) => setScreen({ name: 'end', sessionIdPromise })}
         />
       );
+    }
     case 'end':
       return (
         <EndScreen

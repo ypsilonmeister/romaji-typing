@@ -1,7 +1,8 @@
 // テーマ別単語パック（仕様 v0.3 詳細仕様 §5）。
-// 語はひらがな表記が自然なものに限り、ローマ字は §5 の推奨綴り表記に合わせる。
+// 語はひらがな表記（長音「ー」を含む語も対象）とし、ローマ字は §5 の推奨綴り表記に合わせる。
 
-import { createMatcher } from '../core/matcher';
+import { createMatcher, isComplete, pressKey } from '../core/matcher';
+import { allowsSingleN } from '../core/romajiTable';
 
 export type ThemeId =
   | 'space'
@@ -10,7 +11,14 @@ export type ThemeId =
   | 'architecture'
   | 'food'
   | 'animals'
-  | 'vehicles';
+  | 'vehicles'
+  | 'school'
+  | 'play'
+  | 'bugs'
+  | 'weather'
+  | 'body'
+  | 'home-life'
+  | 'science';
 
 export interface WordEntry {
   /** かな表記。wordProgress の wordId としても使う。 */
@@ -57,6 +65,16 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'だーくまたー', romaji: 'da-kumata-' },
       { kana: 'ぶらっくほーる', romaji: 'burakkuho-ru' },
       { kana: 'にゅーとりの', romaji: 'nyu-torino' },
+      { kana: 'てんのうせい', romaji: 'tennnousei' },
+      { kana: 'かいおうせい', romaji: 'kaiousei' },
+      { kana: 'めいおうせい', romaji: 'meiousei' },
+      { kana: 'ぼうえんきょう', romaji: 'bouenkyou' },
+      { kana: 'むげん', romaji: 'mugen' },
+      { kana: 'うず', romaji: 'uzu' },
+      { kana: 'うずまき', romaji: 'uzumaki' },
+      { kana: 'はんぶん', romaji: 'hanbun' },
+      { kana: 'くうき', romaji: 'kuuki' },
+      { kana: 'うちゅうせん', romaji: 'uchuusen' },
     ],
   },
   {
@@ -88,6 +106,11 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'どんぐり', romaji: 'donguri' },
       { kana: 'わかば', romaji: 'wakaba' },
       { kana: 'つぼみ', romaji: 'tsubomi' },
+      { kana: 'ふていが', romaji: 'futeiga' },
+      { kana: 'まつぼっくり', romaji: 'matsubokkuri' },
+      { kana: 'すぎ', romaji: 'sugi' },
+      { kana: 'けやき', romaji: 'keyaki' },
+      { kana: 'つばき', romaji: 'tsubaki' },
     ],
   },
   {
@@ -104,7 +127,6 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'ぬま', romaji: 'numa' },
       { kana: 'いけ', romaji: 'ike' },
       { kana: 'すな', romaji: 'suna' },
-      { kana: 'しお', romaji: 'shio' },
       { kana: 'なみ', romaji: 'nami' },
       { kana: 'みなと', romaji: 'minato' },
       { kana: 'はんとう', romaji: 'hantou' },
@@ -118,6 +140,87 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'ちず', romaji: 'chizu' },
       { kana: 'さわ', romaji: 'sawa' },
       { kana: 'おーすとらりあ', romaji: 'o-sutoraria' },
+      { kana: 'ほっかいどう', romaji: 'hokkaidou' },
+      { kana: 'あおもり', romaji: 'aomori' },
+      { kana: 'いわて', romaji: 'iwate' },
+      { kana: 'みやぎ', romaji: 'miyagi' },
+      { kana: 'あきた', romaji: 'akita' },
+      { kana: 'やまがた', romaji: 'yamagata' },
+      { kana: 'ふくしま', romaji: 'fukushima' },
+      { kana: 'いばらき', romaji: 'ibaraki' },
+      { kana: 'とちぎ', romaji: 'tochigi' },
+      { kana: 'ぐんま', romaji: 'gunma' },
+      { kana: 'さいたま', romaji: 'saitama' },
+      { kana: 'ちば', romaji: 'chiba' },
+      { kana: 'かながわ', romaji: 'kanagawa' },
+      { kana: 'にいがた', romaji: 'niigata' },
+      { kana: 'とやま', romaji: 'toyama' },
+      { kana: 'いしかわ', romaji: 'ishikawa' },
+      { kana: 'ふくい', romaji: 'fukui' },
+      { kana: 'やまなし', romaji: 'yamanashi' },
+      { kana: 'ぎふ', romaji: 'gifu' },
+      { kana: 'しずおか', romaji: 'shizuoka' },
+      { kana: 'あいち', romaji: 'aichi' },
+      { kana: 'みえ', romaji: 'mie' },
+      { kana: 'しが', romaji: 'shiga' },
+      { kana: 'ひょうご', romaji: 'hyougo' },
+      { kana: 'なら', romaji: 'nara' },
+      { kana: 'わかやま', romaji: 'wakayama' },
+      { kana: 'とっとり', romaji: 'tottori' },
+      { kana: 'しまね', romaji: 'shimane' },
+      { kana: 'おかやま', romaji: 'okayama' },
+      { kana: 'ひろしま', romaji: 'hiroshima' },
+      { kana: 'やまぐち', romaji: 'yamaguchi' },
+      { kana: 'とくしま', romaji: 'tokushima' },
+      { kana: 'かがわ', romaji: 'kagawa' },
+      { kana: 'えひめ', romaji: 'ehime' },
+      { kana: 'こうち', romaji: 'kouchi' },
+      { kana: 'ふくおか', romaji: 'fukuoka' },
+      { kana: 'さが', romaji: 'saga' },
+      { kana: 'ながさき', romaji: 'nagasaki' },
+      { kana: 'くまもと', romaji: 'kumamoto' },
+      { kana: 'おおいた', romaji: 'ooita' },
+      { kana: 'みやざき', romaji: 'miyazaki' },
+      { kana: 'かごしま', romaji: 'kagoshima' },
+      { kana: 'おきなわ', romaji: 'okinawa' },
+      { kana: 'あめりか', romaji: 'amerika' },
+      { kana: 'いぎりす', romaji: 'igirisu' },
+      { kana: 'ふらんす', romaji: 'furansu' },
+      { kana: 'どいつ', romaji: 'doitsu' },
+      { kana: 'いたりあ', romaji: 'itaria' },
+      { kana: 'すぺいん', romaji: 'supein' },
+      { kana: 'おらんだ', romaji: 'oranda' },
+      { kana: 'すいす', romaji: 'suisu' },
+      { kana: 'ぎりしゃ', romaji: 'girisha' },
+      { kana: 'とるこ', romaji: 'toruko' },
+      { kana: 'かんこく', romaji: 'kankoku' },
+      { kana: 'ちゅうごく', romaji: 'chuugoku' },
+      { kana: 'ろしあ', romaji: 'roshia' },
+      { kana: 'いんど', romaji: 'indo' },
+      { kana: 'いらん', romaji: 'iran' },
+      { kana: 'たい', romaji: 'tai' },
+      { kana: 'べとなむ', romaji: 'betonamu' },
+      { kana: 'えじぷと', romaji: 'ejiputo' },
+      { kana: 'けにあ', romaji: 'kenia' },
+      { kana: 'ぶらじる', romaji: 'burajiru' },
+      { kana: 'かなだ', romaji: 'kanada' },
+      { kana: 'めきしこ', romaji: 'mekishiko' },
+      { kana: 'あるぜんちん', romaji: 'aruzenchin' },
+      { kana: 'ちり', romaji: 'chiri' },
+      { kana: 'さうじあらびあ', romaji: 'saujiarabia' },
+      { kana: 'みなみあふりか', romaji: 'minamiafurika' },
+      { kana: 'とうきょう', romaji: 'toukyou' },
+      { kana: 'おおさか', romaji: 'oosaka' },
+      { kana: 'きょうと', romaji: 'kyouto' },
+      { kana: 'ながの', romaji: 'nagano' },
+      { kana: 'しんしゅう', romaji: 'shinshuu' },
+      { kana: 'にほん', romaji: 'nihon' },
+      { kana: 'せかい', romaji: 'sekai' },
+      { kana: 'くに', romaji: 'kuni' },
+      { kana: 'まち', romaji: 'machi' },
+      { kana: 'むら', romaji: 'mura' },
+      { kana: 'とおり', romaji: 'toori' },
+      { kana: 'みち', romaji: 'michi' },
     ],
   },
   {
@@ -147,6 +250,23 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'こうえん', romaji: 'kouen' },
       { kana: 'へい', romaji: 'hei' },
       { kana: 'さっかー', romaji: 'sakka-' },
+      { kana: 'けんちく', romaji: 'kenchiku' },
+      { kana: 'じっけん', romaji: 'jikken' },
+      { kana: 'びょういん', romaji: 'byouin' },
+      { kana: 'としょかん', romaji: 'toshokan' },
+      { kana: 'びじゅつかん', romaji: 'bijutsukan' },
+      { kana: 'すいぞくかん', romaji: 'suizokukan' },
+      { kana: 'どうぶつえん', romaji: 'doubutsuen' },
+      { kana: 'ゆうえんち', romaji: 'yuuenchi' },
+      { kana: 'こんびに', romaji: 'konbini' },
+      { kana: 'ぱんや', romaji: 'pannya' },
+      { kana: 'はなや', romaji: 'hanaya' },
+      { kana: 'ほんや', romaji: 'honnya' },
+      { kana: 'くすりや', romaji: 'kusuriya' },
+      { kana: 'ゆうびんきょく', romaji: 'yuubinkyoku' },
+      { kana: 'こうばん', romaji: 'kouban' },
+      { kana: 'しょうぼうしょ', romaji: 'shoubousho' },
+      { kana: 'けいさつしょ', romaji: 'keisatsusho' },
     ],
   },
   {
@@ -178,6 +298,27 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'しお', romaji: 'shio' },
       { kana: 'えび', romaji: 'ebi' },
       { kana: 'けーき', romaji: 'ke-ki' },
+      { kana: 'ぱん', romaji: 'pan' },
+      { kana: 'おにぎり', romaji: 'onigiri' },
+      { kana: 'てんぷら', romaji: 'tenpura' },
+      { kana: 'やきそば', romaji: 'yakisoba' },
+      { kana: 'たこやき', romaji: 'takoyaki' },
+      { kana: 'おこのみやき', romaji: 'okonomiyaki' },
+      { kana: 'ぷりん', romaji: 'purin' },
+      { kana: 'あいす', romaji: 'aisu' },
+      { kana: 'せんべい', romaji: 'senbei' },
+      { kana: 'だんご', romaji: 'dango' },
+      { kana: 'もち', romaji: 'mochi' },
+      { kana: 'とうふ', romaji: 'toufu' },
+      { kana: 'なっとう', romaji: 'nattou' },
+      { kana: 'にく', romaji: 'niku' },
+      { kana: 'とりにく', romaji: 'toriniku' },
+      { kana: 'ぎゅうにく', romaji: 'gyuuniku' },
+      { kana: 'ぶたにく', romaji: 'butaniku' },
+      { kana: 'やきざかな', romaji: 'yakizakana' },
+      { kana: 'さしみ', romaji: 'sashimi' },
+      { kana: 'おちゃ', romaji: 'ocha' },
+      { kana: 'むぎちゃ', romaji: 'mugicha' },
     ],
   },
   {
@@ -212,6 +353,29 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'ほたる', romaji: 'hotaru' },
       { kana: 'ざりがに', romaji: 'zarigani' },
       { kana: 'ことり', romaji: 'kotori' },
+      { kana: 'ぞう', romaji: 'zou' },
+      { kana: 'きりん', romaji: 'kirin' },
+      { kana: 'らいおん', romaji: 'raion' },
+      { kana: 'とら', romaji: 'tora' },
+      { kana: 'くま', romaji: 'kuma' },
+      { kana: 'しか', romaji: 'shika' },
+      { kana: 'さる', romaji: 'saru' },
+      { kana: 'ぱんだ', romaji: 'panda' },
+      { kana: 'こあら', romaji: 'koara' },
+      { kana: 'ぺんぎん', romaji: 'pengin' },
+      { kana: 'いるか', romaji: 'iruka' },
+      { kana: 'くじら', romaji: 'kujira' },
+      { kana: 'さめ', romaji: 'same' },
+      { kana: 'たこ', romaji: 'tako' },
+      { kana: 'いか', romaji: 'ika' },
+      { kana: 'かに', romaji: 'kani' },
+      { kana: 'あひる', romaji: 'ahiru' },
+      { kana: 'ふくろう', romaji: 'fukurou' },
+      { kana: 'たぬき', romaji: 'tanuki' },
+      { kana: 'きつね', romaji: 'kitsune' },
+      { kana: 'おおかみ', romaji: 'ookami' },
+      { kana: 'ひよこ', romaji: 'hiyoko' },
+      { kana: 'にわとり', romaji: 'niwatori' },
     ],
   },
   {
@@ -237,6 +401,258 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'ききゅう', romaji: 'kikyuu' },
       { kana: 'そり', romaji: 'sori' },
       { kana: 'ろけっと', romaji: 'roketto' },
+      { kana: 'ばす', romaji: 'basu' },
+      { kana: 'とらっく', romaji: 'torakku' },
+      { kana: 'ばいく', romaji: 'baiku' },
+      { kana: 'いちりんしゃ', romaji: 'ichirinsha' },
+      { kana: 'さんりんしゃ', romaji: 'sanrinsha' },
+      { kana: 'ほどうきょう', romaji: 'hodoukyou' },
+      { kana: 'ちかどう', romaji: 'chikadou' },
+    ],
+  },
+  {
+    id: 'school',
+    name: 'がっこう',
+    words: [
+      { kana: 'せんせい', romaji: 'sensei' },
+      { kana: 'きょうしつ', romaji: 'kyoushitsu' },
+      { kana: 'じゅぎょう', romaji: 'jugyou' },
+      { kana: 'しゅくだい', romaji: 'shukudai' },
+      { kana: 'きゅうしょく', romaji: 'kyuushoku' },
+      { kana: 'たいいく', romaji: 'taiiku' },
+      { kana: 'ずこう', romaji: 'zukou' },
+      { kana: 'おんがく', romaji: 'ongaku' },
+      { kana: 'さんすう', romaji: 'sansuu' },
+      { kana: 'こくご', romaji: 'kokugo' },
+      { kana: 'りか', romaji: 'rika' },
+      { kana: 'しゃかい', romaji: 'shakai' },
+      { kana: 'ともだち', romaji: 'tomodachi' },
+      { kana: 'らんどせる', romaji: 'randoseru' },
+      { kana: 'うわばき', romaji: 'uwabaki' },
+      { kana: 'えんぴつ', romaji: 'enpitsu' },
+      { kana: 'けしごむ', romaji: 'keshigomu' },
+      { kana: 'きょうかしょ', romaji: 'kyoukasho' },
+      { kana: 'くれよん', romaji: 'kureyon' },
+      { kana: 'えのぐ', romaji: 'enogu' },
+      { kana: 'はさみ', romaji: 'hasami' },
+      { kana: 'のり', romaji: 'nori' },
+      { kana: 'じょうぎ', romaji: 'jougi' },
+      { kana: 'ぶんぼうぐ', romaji: 'bunbougu' },
+      { kana: 'つくえ', romaji: 'tsukue' },
+      { kana: 'いす', romaji: 'isu' },
+      { kana: 'こくばん', romaji: 'kokuban' },
+      { kana: 'たいそうふく', romaji: 'taisoufuku' },
+      { kana: 'すいとう', romaji: 'suitou' },
+      { kana: 'はんかち', romaji: 'hankachi' },
+      { kana: 'ほうかご', romaji: 'houkago' },
+      { kana: 'つうがく', romaji: 'tsuugaku' },
+      { kana: 'きゅうけい', romaji: 'kyuukei' },
+      { kana: 'うんどうかい', romaji: 'undoukai' },
+      { kana: 'えんそく', romaji: 'ensoku' },
+      { kana: 'にゅうがく', romaji: 'nyuugaku' },
+      { kana: 'くく', romaji: 'kuku' },
+    ],
+  },
+  {
+    id: 'play',
+    name: 'あそび',
+    words: [
+      { kana: 'おもちゃ', romaji: 'omocha' },
+      { kana: 'おにごっこ', romaji: 'onigokko' },
+      { kana: 'かくれんぼ', romaji: 'kakurenbo' },
+      { kana: 'なわとび', romaji: 'nawatobi' },
+      { kana: 'すべりだい', romaji: 'suberidai' },
+      { kana: 'ぶらんこ', romaji: 'buranko' },
+      { kana: 'てつぼう', romaji: 'tetsubou' },
+      { kana: 'すなば', romaji: 'sunaba' },
+      { kana: 'まり', romaji: 'mari' },
+      { kana: 'かるた', romaji: 'karuta' },
+      { kana: 'おりがみ', romaji: 'origami' },
+      { kana: 'ぬりえ', romaji: 'nurie' },
+      { kana: 'えほん', romaji: 'ehon' },
+      { kana: 'すごろく', romaji: 'sugoroku' },
+      { kana: 'とらんぷ', romaji: 'toranpu' },
+      { kana: 'ぱずる', romaji: 'pazuru' },
+      { kana: 'つみき', romaji: 'tsumiki' },
+      { kana: 'やきゅう', romaji: 'yakyuu' },
+      { kana: 'たっきゅう', romaji: 'takkyuu' },
+      { kana: 'すいえい', romaji: 'suiei' },
+      { kana: 'はなび', romaji: 'hanabi' },
+      { kana: 'まつり', romaji: 'matsuri' },
+      { kana: 'ゆかた', romaji: 'yukata' },
+      { kana: 'かきごおり', romaji: 'kakigoori' },
+      { kana: 'わたあめ', romaji: 'wataame' },
+      { kana: 'しゃぼんだま', romaji: 'shabondama' },
+      { kana: 'たこあげ', romaji: 'takoage' },
+      { kana: 'こま', romaji: 'koma' },
+      { kana: 'けんだま', romaji: 'kendama' },
+      { kana: 'だるま', romaji: 'daruma' },
+      { kana: 'ふくわらい', romaji: 'fukuwarai' },
+      { kana: 'あやとり', romaji: 'ayatori' },
+      { kana: 'おてだま', romaji: 'otedama' },
+      { kana: 'めんこ', romaji: 'menko' },
+    ],
+  },
+  {
+    id: 'bugs',
+    name: 'むし',
+    words: [
+      { kana: 'てんとうむし', romaji: 'tentoumushi' },
+      { kana: 'とんぼ', romaji: 'tonbo' },
+      { kana: 'かまきり', romaji: 'kamakiri' },
+      { kana: 'ばった', romaji: 'batta' },
+      { kana: 'こおろぎ', romaji: 'koorogi' },
+      { kana: 'すずむし', romaji: 'suzumushi' },
+      { kana: 'かたつむり', romaji: 'katatsumuri' },
+      { kana: 'みみず', romaji: 'mimizu' },
+      { kana: 'だんごむし', romaji: 'dangomushi' },
+      { kana: 'あめんぼ', romaji: 'amenbo' },
+      { kana: 'げんごろう', romaji: 'gengorou' },
+      { kana: 'たがめ', romaji: 'tagame' },
+      { kana: 'あげは', romaji: 'ageha' },
+      { kana: 'もんしろちょう', romaji: 'monshirochou' },
+    ],
+  },
+  {
+    id: 'weather',
+    name: '天気と季節',
+    words: [
+      { kana: 'あめ', romaji: 'ame' },
+      { kana: 'ゆき', romaji: 'yuki' },
+      { kana: 'かぜ', romaji: 'kaze' },
+      { kana: 'たいふう', romaji: 'taifuu' },
+      { kana: 'かみなり', romaji: 'kaminari' },
+      { kana: 'にじ', romaji: 'niji' },
+      { kana: 'はれ', romaji: 'hare' },
+      { kana: 'あさ', romaji: 'asa' },
+      { kana: 'ひる', romaji: 'hiru' },
+      { kana: 'ゆうがた', romaji: 'yuugata' },
+      { kana: 'はる', romaji: 'haru' },
+      { kana: 'なつ', romaji: 'natsu' },
+      { kana: 'あき', romaji: 'aki' },
+      { kana: 'ふゆ', romaji: 'fuyu' },
+      { kana: 'つゆ', romaji: 'tsuyu' },
+      { kana: 'こうよう', romaji: 'kouyou' },
+      { kana: 'ゆきだるま', romaji: 'yukidaruma' },
+      { kana: 'こおり', romaji: 'koori' },
+      { kana: 'あられ', romaji: 'arare' },
+      { kana: 'きり', romaji: 'kiri' },
+      { kana: 'ひかげ', romaji: 'hikage' },
+      { kana: 'ひなた', romaji: 'hinata' },
+      { kana: 'かさ', romaji: 'kasa' },
+      { kana: 'ながぐつ', romaji: 'nagagutsu' },
+      { kana: 'てぶくろ', romaji: 'tebukuro' },
+      { kana: 'ぼうし', romaji: 'boushi' },
+    ],
+  },
+  {
+    id: 'body',
+    name: 'からだ',
+    words: [
+      { kana: 'あたま', romaji: 'atama' },
+      { kana: 'かお', romaji: 'kao' },
+      { kana: 'みみ', romaji: 'mimi' },
+      { kana: 'くち', romaji: 'kuchi' },
+      { kana: 'は', romaji: 'ha' },
+      { kana: 'て', romaji: 'te' },
+      { kana: 'あし', romaji: 'ashi' },
+      { kana: 'ゆび', romaji: 'yubi' },
+      { kana: 'おなか', romaji: 'onaka' },
+      { kana: 'せなか', romaji: 'senaka' },
+      { kana: 'かみ', romaji: 'kami' },
+      { kana: 'つめ', romaji: 'tsume' },
+      { kana: 'ひざ', romaji: 'hiza' },
+      { kana: 'ひじ', romaji: 'hiji' },
+      { kana: 'かた', romaji: 'kata' },
+      { kana: 'くび', romaji: 'kubi' },
+      { kana: 'むね', romaji: 'mune' },
+      { kana: 'こし', romaji: 'koshi' },
+      { kana: 'ほね', romaji: 'hone' },
+      { kana: 'しんぞう', romaji: 'shinzou' },
+      { kana: 'のう', romaji: 'nou' },
+      { kana: 'きんにく', romaji: 'kinnniku' },
+      { kana: 'ねつ', romaji: 'netsu' },
+      { kana: 'せき', romaji: 'seki' },
+      { kana: 'くしゃみ', romaji: 'kushami' },
+      { kana: 'けが', romaji: 'kega' },
+      { kana: 'ばんそうこう', romaji: 'bansoukou' },
+      { kana: 'くすり', romaji: 'kusuri' },
+      { kana: 'いしゃ', romaji: 'isha' },
+    ],
+  },
+  {
+    id: 'home-life',
+    name: 'いえの生活',
+    words: [
+      { kana: 'おふろ', romaji: 'ofuro' },
+      { kana: 'ふとん', romaji: 'futon' },
+      { kana: 'まくら', romaji: 'makura' },
+      { kana: 'はぶらし', romaji: 'haburashi' },
+      { kana: 'せっけん', romaji: 'sekken' },
+      { kana: 'たおる', romaji: 'taoru' },
+      { kana: 'かがみ', romaji: 'kagami' },
+      { kana: 'つめきり', romaji: 'tsumekiri' },
+      { kana: 'でんき', romaji: 'denki' },
+      { kana: 'れいぞうこ', romaji: 'reizouko' },
+      { kana: 'せんたくき', romaji: 'sentakuki' },
+      { kana: 'そうじき', romaji: 'soujiki' },
+      { kana: 'こたつ', romaji: 'kotatsu' },
+      { kana: 'とけい', romaji: 'tokei' },
+      { kana: 'しんぶん', romaji: 'shinbun' },
+      { kana: 'ほん', romaji: 'hon' },
+      { kana: 'てがみ', romaji: 'tegami' },
+      { kana: 'でんわ', romaji: 'denwa' },
+      { kana: 'かぎ', romaji: 'kagi' },
+      { kana: 'さいふ', romaji: 'saifu' },
+      { kana: 'かばん', romaji: 'kaban' },
+      { kana: 'くつ', romaji: 'kutsu' },
+      { kana: 'くつした', romaji: 'kutsushita' },
+      { kana: 'うわぎ', romaji: 'uwagi' },
+      { kana: 'ずぼん', romaji: 'zubon' },
+      { kana: 'ぱじゃま', romaji: 'pajama' },
+    ],
+  },
+  {
+    id: 'science',
+    name: 'ふしぎ・りか',
+    words: [
+      { kana: 'そりゅうし', romaji: 'soryuushi' },
+      { kana: 'でんし', romaji: 'denshi' },
+      { kana: 'ようし', romaji: 'youshi' },
+      { kana: 'ちゅうせいし', romaji: 'chuuseishi' },
+      { kana: 'げんし', romaji: 'genshi' },
+      { kana: 'ぶんし', romaji: 'bunshi' },
+      { kana: 'げんそ', romaji: 'genso' },
+      { kana: 'すいそ', romaji: 'suiso' },
+      { kana: 'へりうむ', romaji: 'heriumu' },
+      { kana: 'たんそ', romaji: 'tanso' },
+      { kana: 'ちっそ', romaji: 'chisso' },
+      { kana: 'さんそ', romaji: 'sanso' },
+      { kana: 'てつ', romaji: 'tetsu' },
+      { kana: 'どう', romaji: 'dou' },
+      { kana: 'きん', romaji: 'kin' },
+      { kana: 'ぎん', romaji: 'gin' },
+      { kana: 'あるみ', romaji: 'arumi' },
+      { kana: 'なまり', romaji: 'namari' },
+      { kana: 'あえん', romaji: 'aen' },
+      { kana: 'すず', romaji: 'suzu' },
+      { kana: 'ねおん', romaji: 'neon' },
+      { kana: 'あるごん', romaji: 'arugon' },
+      { kana: 'うらん', romaji: 'uran' },
+      { kana: 'ぷるとにうむ', romaji: 'purutoniumu' },
+      { kana: 'ひっぐす', romaji: 'higgusu' },
+      { kana: 'あんちぶっしつ', romaji: 'anchibusshitsu' },
+      { kana: 'ぜろ', romaji: 'zero' },
+      { kana: 'ぷらす', romaji: 'purasu' },
+      { kana: 'まいなす', romaji: 'mainasu' },
+      { kana: 'じしゃく', romaji: 'jishaku' },
+      { kana: 'でんち', romaji: 'denchi' },
+      { kana: 'でんきゅう', romaji: 'denkyuu' },
+      { kana: 'おんど', romaji: 'ondo' },
+      { kana: 'きあつ', romaji: 'kiatsu' },
+      { kana: 'おと', romaji: 'oto' },
+      { kana: 'むしめがね', romaji: 'mushimegane' },
+      { kana: 'けんびきょう', romaji: 'kenbikyou' },
     ],
   },
 ];
@@ -246,21 +662,34 @@ export const PACK_KANA_SET: ReadonlySet<string> = new Set(
   THEME_PACKS.flatMap((pack) => pack.words.map((word) => word.kana)),
 );
 
+/** テーマ ID から対応する単語パックを返す。 */
+export function getThemePack(themeId: ThemeId): ThemePack | undefined {
+  return THEME_PACKS.find((pack) => pack.id === themeId);
+}
+
 /**
- * 「テーマで あそぶ」の既定お題（10語）。
- * 長音「ー」を含む語や追加7語を中心に、全7テーマからバランスよく出題する。
+ * 「テーマで あそぶ」の既定お題（17語）。
+ * 長音「ー」を含む語（Issue #21）と、既存テーマの追加語・新テーマ7つの代表語を含め、
+ * 全14テーマからバランスよく出題する。
  */
 export const DEFAULT_THEME_WORDS: readonly string[] = [
   'ほし',
   'けーき',
+  'せんせい',
   'さっかー',
   'ろけっと',
   'おーすとらりあ',
   'だーくまたー',
   'ぶらっくほーる',
   'にゅーとりの',
-  'はな',
-  'いぬ',
+  'まつぼっくり',
+  'ぞう',
+  'おもちゃ',
+  'てんとうむし',
+  'あめ',
+  'あたま',
+  'おふろ',
+  'そりゅうし',
 ];
 
 /**
@@ -278,5 +707,48 @@ export function romajiForWord(kana: string): string {
     return matcher.units.map((unit) => unit.options[0]?.romaji ?? '').join('');
   } catch {
     return '';
+  }
+}
+
+/**
+ * 指定したローマ字表記を照合エンジンへ1文字ずつ入力して完成できるかを返す。
+ */
+export function isRomajiTypable(kana: string, romaji: string): boolean {
+  if (!romaji) return false;
+  try {
+    let state = createMatcher(kana);
+    for (const ch of romaji) {
+      const result = pressKey(state, ch);
+      if (!result.accepted) return false;
+      state = result.state;
+    }
+    return isComplete(state);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * レッスン（照合エンジン §2.3）でそのまま打ち切れるローマ字表記を返す。
+ * 通常は §5 の表記（romajiForWord）と同じだが、ら行・わ行の前の「ん」など
+ * §2.3 で nn が必須な語では nn を補った綴りを返す。
+ */
+export function lessonRomajiForWord(kana: string): string {
+  const base = romajiForWord(kana);
+  if (base && isRomajiTypable(kana, base)) return base;
+  try {
+    const matcher = createMatcher(kana);
+    return matcher.units
+      .map((unit, index) => {
+        if (unit.kana === 'ん') {
+          const next = matcher.units[index + 1]?.kana;
+          const isOnly = matcher.units.length === 1;
+          return allowsSingleN(next, isOnly) ? 'n' : 'nn';
+        }
+        return unit.options[0]?.romaji ?? '';
+      })
+      .join('');
+  } catch {
+    return base;
   }
 }

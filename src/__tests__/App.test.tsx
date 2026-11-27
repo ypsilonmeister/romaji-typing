@@ -113,5 +113,28 @@ describe('画面遷移', () => {
       fireEvent.keyDown(window, { key });
     }
     expect(screen.getByText('できた！')).toBeDefined();
+
+    // 3問目で新テーマ（がっこう）の追加語「せんせい」に到達し、そのまま打ち切れる
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    expect(screen.getByRole('region', { name: 'おだい' }).textContent).toContain('せんせい');
+    for (const key of 'sensei') {
+      fireEvent.keyDown(window, { key });
+    }
+    expect(screen.getByText('できた！')).toBeDefined();
+  });
+
+  it('モード選択に全14テーマが表示され、新テーマを選んでレッスンを開始できる', () => {
+    renderAtMenu();
+    const themeSection = screen.getByRole('region', { name: 'テーマ選択' });
+    const themeButtons = themeSection.querySelectorAll<HTMLButtonElement>('[data-theme-id]');
+    expect(themeButtons).toHaveLength(14);
+
+    // 新テーマ「ふしぎ・りか」を選んで開始する
+    click(/^ふしぎ・りか/);
+    expect(heading('テーマで あそぶ')).toBeDefined();
+    expect(screen.getByText('ふしぎ・りか')).toBeDefined();
+    expect(screen.getByRole('region', { name: 'おだい' }).textContent).toContain('そりゅうし');
   });
 });
