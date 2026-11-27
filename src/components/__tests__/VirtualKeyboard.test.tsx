@@ -79,7 +79,9 @@ describe('VirtualKeyboard', () => {
     { name: '1920x1080 しりとり画面', availW: 1000, availH: 500 },
     { name: '768x1024 縦長（<=820px 縦積み）', availW: 720, availH: 430 },
     { name: '480x800 小型縦長', availW: 440, availH: 336 },
-    { name: '320x568 極狭幅縦長（<=820px 縦積み）', availW: 270, availH: 238 },
+    { name: '320x568 極狭幅縦長（縦積み）', availW: 270, availH: 150 },
+    { name: '667x375 横向きスマホ・レッスン画面（残り高さ基準）', availW: 430, availH: 150 },
+    { name: '667x375 横向きスマホ・しりとり画面（残り高さ基準）', availW: 620, availH: 140 },
     { name: '900x1200 縦長デスクトップ', availW: 585, availH: 580 },
     { name: '1920x600 横長・低高', availW: 1288, availH: 240 },
   ])('$name で全キーが正方形（特殊キーは規定比）を保ち枠内に収まる', ({ availW, availH }) => {
@@ -134,15 +136,14 @@ describe('VirtualKeyboard', () => {
     };
     const stylesCss = readFileSync('src/styles.css', 'utf-8');
 
-    // コンテナサイズ計測と縦積み時の inline-size フォールバック
+    // 全ビューポートでコンテナサイズ計測（container-type: size）を維持し、inline-size へ退行させない
     expect(stylesCss).toMatch(/\.kb-stage\s*\{[^}]*container-type:\s*size;/s);
-    expect(stylesCss).toMatch(
-      /@media\s*\(max-width:\s*820px\)[\s\S]*?\.kb-stage\s*\{[^}]*container-type:\s*inline-size;/,
-    );
+    expect(stylesCss).not.toMatch(/\.kb-stage\s*\{[^}]*container-type:\s*inline-size;/s);
 
-    // 利用可能幅（cqi）と高さ（cqb）の両方から --key-size を決定
+    // 利用可能幅（cqi）と高さ（cqb）の両方から --key-size を決定し、固定の 42dvh 上書きを持たない
     expect(stylesCss).toMatch(/calc\(100cqi\s*\/\s*var\(--kb-width-units/);
     expect(stylesCss).toMatch(/calc\(100cqb\s*\/\s*var\(--kb-height-units/);
+    expect(stylesCss).not.toMatch(/42dvh/);
 
     // キーの正方形（aspect-ratio）と固定伸縮（flex: 0 0 auto）
     expect(stylesCss).toMatch(/\.kb-key\s*\{[^}]*flex:\s*0\s+0\s+auto;/s);
@@ -153,11 +154,11 @@ describe('VirtualKeyboard', () => {
     expect(stylesCss).toMatch(/\.kb-key\s*\{[^}]*aspect-ratio:\s*var\(--key-span,\s*1\)\s*\/\s*1;/s);
 
     // 狭幅レッスン画面で自動最小幅によるグリッド列の横はみ出しを防ぐ（minmax(0, 1fr)）
-    expect(stylesCss).toMatch(
-      /@media\s*\(max-width:\s*820px\)[\s\S]*?\.lesson\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s,
-    );
+    expect(stylesCss).toMatch(/\.lesson\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s);
 
-    // 低いウィンドウ（例: 1366x500）でも 100dvh 内に収まるよう固定の min-block-size を持たない
+    // 両画面とも 100dvh 内に収め、block-size: auto への解除や固定の min-block-size を持たない
+    expect(stylesCss).not.toMatch(/\.lesson\s*\{[^}]*block-size:\s*auto;/s);
+    expect(stylesCss).not.toMatch(/\.shiritori\s*\{[^}]*block-size:\s*auto;/s);
     expect(stylesCss).not.toMatch(/\.lesson\s*\{[^}]*min-block-size:\s*35rem;/s);
     expect(stylesCss).not.toMatch(/\.shiritori\s*\{[^}]*min-block-size:\s*35rem;/s);
   });
