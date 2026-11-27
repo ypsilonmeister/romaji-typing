@@ -90,8 +90,24 @@ describe('基本の照合', () => {
     expect(splitKana('あゃ')).toEqual(['あ', 'ゃ']);
   });
 
-  it.each(['', 'カ', 'らーめん', 'ab', 'あ い'])('扱えないお題「%s」は例外', (word) => {
+  it.each(['', 'カ', 'ab', 'あ い'])('扱えないお題「%s」は例外', (word) => {
     expect(() => createMatcher(word)).toThrow();
+  });
+
+  it('長音「ー」を含む語を - で打てて、案内にも - が示される', () => {
+    expect(splitKana('けーき')).toEqual(['け', 'ー', 'き']);
+    expectCompletes('けーき', 'ke-ki');
+    expectCompletes('だーくまたー', 'da-kumata-');
+    expectCompletes('ぶらっくほーる', 'burakkuho-ru');
+    expectCompletes('にゅーとりの', 'nyu-torino');
+    expect(followGuide('けーき')).toBe('ke-ki');
+    expect(guideWhileTyping('けーき', 'ke-ki')).toEqual(['k', 'e', '-', 'k', 'i']);
+    // 促音の後ろの「ー」は重ねず、単独入力のみ受け付ける
+    expect(type('っー', '-').mistakeCount).toBe(1);
+    expectCompletes('っー', 'xtu-');
+    // 「ん」の後ろの「ー」は n- / nn- どちらも受け付ける
+    expectCompletes('んー', 'n-');
+    expectCompletes('んー', 'nn-');
   });
 });
 
@@ -552,7 +568,7 @@ describe('全項目の2つ組の連結', () => {
   // 項目を連結した文字列なので、き＋ゃ のように拗音1単位になる組も含む。
   it('2項目を連結した文字列の全到達状態で、accepted と nextKeys が一致し、行き止まりがない', () => {
     const kana = Object.keys(ROMAJI_TABLE);
-    const alphabet = [...'abcdefghijklmnopqrstuvwxyz'];
+    const alphabet = [...'abcdefghijklmnopqrstuvwxyz-'];
     const failures: string[] = [];
 
     for (const first of kana) {

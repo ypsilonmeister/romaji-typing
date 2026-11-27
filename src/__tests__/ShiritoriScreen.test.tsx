@@ -495,4 +495,40 @@ describe('ShiritoriScreen', () => {
     });
     expect(screen.getByTestId('expected-kana').textContent).toBe('ま');
   });
+
+  it('長音「ー」を物理キー - と仮想キーボード「ー」ボタンの両方で打てて、末尾正規化が働く', async () => {
+    render(
+      <ShiritoriScreen
+        dictionary={['あさ', 'さっかー', 'あめ', 'めだか']}
+        random={() => 0}
+        appResponseDelayMs={50}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).soundOn).toBe(true);
+    });
+
+    // 初期状態で「ー」キーも次に打てるキーとして強調される
+    expect(keyButton('-').textContent).toBe('ー');
+    expect(keyButton('-').dataset.next).toBe('true');
+
+    // 仮想キーボードの「ー」ボタンで「さっかー」を入力して決定
+    typeWord('sakka');
+    fireEvent.click(keyButton('-'));
+    expect(screen.getByTestId('shiritori-input').textContent).toContain('さっかー');
+
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+      'さっかー',
+    );
+
+    // 末尾が「ー」→ 直前「か」の母音「あ」に正規化され、アプリが「あめ」を返す
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+        'あめ',
+      );
+    });
+  });
 });

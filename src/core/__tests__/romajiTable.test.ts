@@ -14,11 +14,12 @@ const YOON = words('き し ち に ひ み り ぎ じ ぢ び ぴ').flatMap((b
   ['ゃ', 'ゅ', 'ょ'].map((small) => base + small),
 );
 const SPECIAL = words('っ ゃ ゅ ょ');
+const LONG_VOWEL = words('ー');
 
 describe('対応表の網羅', () => {
-  const all = [...SEION, ...DAKUON, ...HANDAKUON, ...YOON, ...SPECIAL];
+  const all = [...SEION, ...DAKUON, ...HANDAKUON, ...YOON, ...SPECIAL, ...LONG_VOWEL];
 
-  it('清音・濁点・半濁点・拗音・促音の全かながあり、余分な項目がない', () => {
+  it('清音・濁点・半濁点・拗音・促音・長音の全かながあり、余分な項目がない', () => {
     expect([SEION, DAKUON, HANDAKUON, YOON].map((list) => list.length)).toEqual([46, 20, 5, 36]);
     expect(Object.keys(ROMAJI_TABLE).sort()).toEqual([...all].sort());
   });
@@ -33,9 +34,9 @@ describe('対応表の網羅', () => {
     expect(spellingsOf(kana)!.length).toBeGreaterThan(0);
   });
 
-  it.each(all)('%s の綴りは英小文字で重複しない', (kana) => {
+  it.each(all)('%s の綴りは英小文字またはハイフンで重複しない', (kana) => {
     const spellings = spellingsOf(kana)!;
-    expect(spellings.every((s) => /^[a-z]+$/.test(s))).toBe(true);
+    expect(spellings.every((s) => /^[a-z-]+$/.test(s))).toBe(true);
     expect(new Set(spellings).size).toBe(spellings.length);
   });
 
@@ -112,7 +113,12 @@ describe('仕様 §1 の綴り', () => {
     ]);
   });
 
-  it.each(['', 'ア', 'ー', 'a', 'きあ', 'toString'])('表にない「%s」は undefined', (kana) => {
+  it('長音「ー」の推奨綴りは - で、許容綴りは持たない', () => {
+    expect(recommendedSpelling('ー')).toBe('-');
+    expect(spellingsOf('ー')).toEqual(['-']);
+  });
+
+  it.each(['', 'ア', 'a', 'きあ', 'toString'])('表にない「%s」は undefined', (kana) => {
     expect(spellingsOf(kana)).toBeUndefined();
   });
 });

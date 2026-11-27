@@ -1,6 +1,7 @@
 // @vitest-environment node
 // DOM に依存しないしりとりゲームロジックの単体テスト。
 import { describe, expect, it, vi } from 'vitest';
+import extendedDict from '../../../public/shiritori-dict.json';
 import {
   advanceAppTurn,
   appCandidateWords,
@@ -223,6 +224,21 @@ describe('子どもの手番の検証（submitChildWord）', () => {
     const res = submitChildWord(start, 'やま', dictSet);
     expect(res.accepted).toBe(true);
   });
+
+  it('末尾が ー の言葉（だーくまたー・さっかー）の次は直前のかなの母音「あ」に正規化される', () => {
+    const longVowelDict = ['あさ', 'さっかー', 'あめ', 'だーくまたー'];
+    const longVowelSet = new Set(longVowelDict);
+    const start = createShiritoriGame(['あさ', 'さっかー', 'あめ'], () => 0);
+    expect(start.expectedKana).toBe('さ');
+    const res = submitChildWord(start, 'さっかー', longVowelSet);
+    expect(res.accepted).toBe(true);
+    if (res.accepted) {
+      expect(res.state.expectedKana).toBe('あ');
+      const next = submitChildWord(res.state, 'あめ', longVowelSet);
+      expect(next.accepted).toBe(true);
+    }
+    expect(normalizeNextKana('だーくまたー')).toBe('あ');
+  });
 });
 
 describe('拡張辞書（Issue #19）', () => {
@@ -333,5 +349,10 @@ describe('拡張辞書（Issue #19）', () => {
     await expect(loadExtendedShiritoriDictionary({ fetchImpl: nonArrayFetch })).resolves.toEqual(
       [],
     );
+  });
+
+  it('public/shiritori-dict.json の要素数が 19,991 語である', () => {
+    expect(Array.isArray(extendedDict)).toBe(true);
+    expect(extendedDict.length).toBe(19991);
   });
 });

@@ -75,6 +75,7 @@ export const KEYBOARD_ROWS: readonly (readonly KeySpec[])[] = [
     { code: 'p', label: 'P', finger: 'right-pinky' },
     { code: '@', label: '@', finger: 'right-pinky' },
     { code: '[', label: '[', finger: 'right-pinky' },
+    { code: '-', label: 'ー', finger: 'right-pinky' },
     { code: 'Backspace', label: 'BS', finger: 'right-pinky', width: 1.5, isSpecial: true },
   ],
   [

@@ -54,6 +54,9 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'よる', romaji: 'yoru' },
       { kana: 'ひかり', romaji: 'hikari' },
       { kana: 'かげ', romaji: 'kage' },
+      { kana: 'だーくまたー', romaji: 'da-kumata-' },
+      { kana: 'ぶらっくほーる', romaji: 'burakkuho-ru' },
+      { kana: 'にゅーとりの', romaji: 'nyu-torino' },
     ],
   },
   {
@@ -114,6 +117,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'すなはま', romaji: 'sunahama' },
       { kana: 'ちず', romaji: 'chizu' },
       { kana: 'さわ', romaji: 'sawa' },
+      { kana: 'おーすとらりあ', romaji: 'o-sutoraria' },
     ],
   },
   {
@@ -142,6 +146,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'がっこう', romaji: 'gakkou' },
       { kana: 'こうえん', romaji: 'kouen' },
       { kana: 'へい', romaji: 'hei' },
+      { kana: 'さっかー', romaji: 'sakka-' },
     ],
   },
   {
@@ -172,6 +177,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'さとう', romaji: 'satou' },
       { kana: 'しお', romaji: 'shio' },
       { kana: 'えび', romaji: 'ebi' },
+      { kana: 'けーき', romaji: 'ke-ki' },
     ],
   },
   {
@@ -230,6 +236,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       { kana: 'せんすいかん', romaji: 'sensuikan' },
       { kana: 'ききゅう', romaji: 'kikyuu' },
       { kana: 'そり', romaji: 'sori' },
+      { kana: 'ろけっと', romaji: 'roketto' },
     ],
   },
 ];

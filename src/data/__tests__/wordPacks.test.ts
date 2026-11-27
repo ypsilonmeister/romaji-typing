@@ -20,7 +20,7 @@ function parseSpecSection5(): { name: string; words: { kana: string; romaji: str
     while (j < lines.length && lines[j].trim() === '') j += 1;
     const entryLine = lines[j]?.trim() ?? '';
     const words = entryLine.split('、').map((token) => {
-      const m = /^(.+?)\(([a-z]+)\)$/.exec(token.trim());
+      const m = /^(.+?)\(([a-z-]+)\)$/.exec(token.trim());
       if (!m) {
         throw new Error(`§5 の形式が不正です: ${name} -> ${token}`);
       }
@@ -32,7 +32,7 @@ function parseSpecSection5(): { name: string; words: { kana: string; romaji: str
 }
 
 describe('テーマ別単語パック（仕様 v0.3 §5）', () => {
-  it('spec-v0.3-detail.md §5 の全テーマ・全164語のかなとローマ字表記に完全一致する', () => {
+  it('spec-v0.3-detail.md §5 の全テーマ・全171語のかなとローマ字表記に完全一致する', () => {
     const specPacks = parseSpecSection5();
     expect(specPacks.length).toBe(7);
     expect(
@@ -43,18 +43,18 @@ describe('テーマ別単語パック（仕様 v0.3 §5）', () => {
     ).toEqual(specPacks);
   });
 
-  it('仕様 §5 の7テーマ・全164語を定義順で収録している', () => {
+  it('仕様 §5 の7テーマ・全171語を定義順で収録している', () => {
     expect(THEME_PACKS.map((pack) => [pack.name, pack.words.length])).toEqual([
-      ['宇宙', 24],
+      ['宇宙', 27],
       ['植物', 25],
-      ['地理', 23],
-      ['建築', 22],
-      ['食べ物', 24],
+      ['地理', 24],
+      ['建築', 23],
+      ['食べ物', 25],
       ['動物', 28],
-      ['のりもの・踏切', 18],
+      ['のりもの・踏切', 19],
     ]);
     const total = THEME_PACKS.reduce((sum, pack) => sum + pack.words.length, 0);
-    expect(total).toBe(164);
+    expect(total).toBe(171);
   });
 
   it('各テーマ内で同じかなが重複しない', () => {
@@ -107,6 +107,8 @@ describe('テーマ別単語パック（仕様 v0.3 §5）', () => {
   it('romajiForWord は §5 の語にはパックの表記を、パック外の語には推奨綴りを返す', () => {
     expect(romajiForWord('きんせい')).toBe('kinsei');
     expect(romajiForWord('しんかんせん')).toBe('shinkansen');
+    expect(romajiForWord('けーき')).toBe('ke-ki');
+    expect(romajiForWord('だーくまたー')).toBe('da-kumata-');
     expect(romajiForWord('あさ')).toBe('asa');
   });
 });

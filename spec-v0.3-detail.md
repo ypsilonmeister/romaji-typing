@@ -57,7 +57,7 @@
 - 促音（っ）: 次の子音を重ねる（かっこ=kakko、ずっと=zutto、しっかり=shikkari）。子音の前の単独入力として xtu / ltu も許容する（IME 準拠、案内には出さない）。
 - 小さい ゃゅょ の単独入力: xya / lyu 等の x・l 接頭辞を許容する（案内には出さない）。
 - 推奨の打ち方がない場合（子音を重ねられない位置の促音＝語末や母音・な行・ん の前など、および単独の小さい ゃゅょ）: x・l の入力は受け付けるが、打ち始める前は案内するキーを出さない。x・l で打ち始めた後は、§2.2 に従って案内が追従する。
-- 長音（ー）: v1 はひらがなのみのため対象外。将来のカタカナ対応時に「-」で扱う。
+- 長音（ー）: 1単位として扱い、推奨綴りを `-`（IME と同じキー）とする。許容綴りは持たない。促音の子音重ねの対象にはしない。
 
 ## 2. 照合ルール（マッチャ）
 
@@ -70,6 +70,7 @@
 - 次に押すキーの案内は、原則として推奨綴りに沿って表示する。
 - ただし学習者が別綴りで打ち始めた場合（例: ち を t と打ち始めた）、案内はその綴りに追従して切り替える（次のキーは I を光らせる）。打ち方を途中で否定しない。
 - 打ったキーが推奨綴りと別綴りで共通の間（例: し の s）は、どちらか決まらないので推奨綴りの次のキー（H）を案内する。別綴りの次のキー（I）も受け付け、打てばその綴りになる。
+- 長音（ー）の案内では `-` キー（バーチャルキーボードの「ー」ボタン、担当指は右小指）を光らせて示す。ヒント表示にも「ー (-)」のように `-` キーであることを示す。
 
 ### 2.3 「ん」の確定条件
 - 次のかなが母音・や行・ら行・わ行の場合: nn を要求する（かに vs かんい、きんよう vs きにょう の区別）。
@@ -147,29 +148,29 @@
 
 ## 5. テーマ別単語パック
 
-Step 4「ことば」用。語はひらがな表記が自然なものに限る（カタカナ語は v1 では入れない）。ローマ字は推奨綴り。
+Step 4「ことば」用。語はひらがな表記（長音「ー」を含む語も対象）とし、ローマ字は推奨綴り（長音は `-`）で書く。
 各パックの単語は、到達ステージまでの文字で打てるものだけがレッスンに出る（§4.3）。全開は Stage E 到達後。
 
 ### 5.1 宇宙
-ほし(hoshi)、つき(tsuki)、たいよう(taiyou)、ちきゅう(chikyuu)、かせい(kasei)、きんせい(kinsei)、すいせい(suisei)、もくせい(mokusei)、どせい(dosei)、わくせい(wakusei)、うちゅう(uchuu)、ぎんが(ginga)、せいざ(seiza)、ながれぼし(nagareboshi)、いんせき(inseki)、えいせい(eisei)、じゅうりょく(juuryoku)、あまのがわ(amanogawa)、ほしぞら(hoshizora)、つきよ(tsukiyo)、そら(sora)、よる(yoru)、ひかり(hikari)、かげ(kage)
+ほし(hoshi)、つき(tsuki)、たいよう(taiyou)、ちきゅう(chikyuu)、かせい(kasei)、きんせい(kinsei)、すいせい(suisei)、もくせい(mokusei)、どせい(dosei)、わくせい(wakusei)、うちゅう(uchuu)、ぎんが(ginga)、せいざ(seiza)、ながれぼし(nagareboshi)、いんせき(inseki)、えいせい(eisei)、じゅうりょく(juuryoku)、あまのがわ(amanogawa)、ほしぞら(hoshizora)、つきよ(tsukiyo)、そら(sora)、よる(yoru)、ひかり(hikari)、かげ(kage)、だーくまたー(da-kumata-)、ぶらっくほーる(burakkuho-ru)、にゅーとりの(nyu-torino)
 
 ### 5.2 植物
 はな(hana)、はっぱ(happa)、はなびら(hanabira)、き(ki)、たね(tane)、め(me)、ねっこ(nekko)、くさ(kusa)、もり(mori)、はやし(hayashi)、さくら(sakura)、たんぽぽ(tanpopo)、ひまわり(himawari)、あさがお(asagao)、すみれ(sumire)、もみじ(momiji)、いちょう(ichou)、まつ(matsu)、たけ(take)、うめ(ume)、ふじ(fuji)、かえで(kaede)、どんぐり(donguri)、わかば(wakaba)、つぼみ(tsubomi)
 
 ### 5.3 地理
-やま(yama)、かわ(kawa)、うみ(umi)、しま(shima)、みずうみ(mizuumi)、さばく(sabaku)、たに(tani)、ぬま(numa)、いけ(ike)、すな(suna)、しお(shio)、なみ(nami)、みなと(minato)、はんとう(hantou)、かざん(kazan)、たき(taki)、どうくつ(doukutsu)、こうげん(kougen)、へいや(heiya)、がけ(gake)、すなはま(sunahama)、ちず(chizu)、さわ(sawa)
+やま(yama)、かわ(kawa)、うみ(umi)、しま(shima)、みずうみ(mizuumi)、さばく(sabaku)、たに(tani)、ぬま(numa)、いけ(ike)、すな(suna)、しお(shio)、なみ(nami)、みなと(minato)、はんとう(hantou)、かざん(kazan)、たき(taki)、どうくつ(doukutsu)、こうげん(kougen)、へいや(heiya)、がけ(gake)、すなはま(sunahama)、ちず(chizu)、さわ(sawa)、おーすとらりあ(o-sutoraria)
 
 ### 5.4 建築
-いえ(ie)、うち(uchi)、たてもの(tatemono)、はしら(hashira)、かべ(kabe)、やね(yane)、まど(mado)、とびら(tobira)、かいだん(kaidan)、げんかん(genkan)、にわ(niwa)、もん(mon)、てら(tera)、じんじゃ(jinja)、しろ(shiro)、とう(tou)、はし(hashi)、えき(eki)、みせ(mise)、がっこう(gakkou)、こうえん(kouen)、へい(hei)
+いえ(ie)、うち(uchi)、たてもの(tatemono)、はしら(hashira)、かべ(kabe)、やね(yane)、まど(mado)、とびら(tobira)、かいだん(kaidan)、げんかん(genkan)、にわ(niwa)、もん(mon)、てら(tera)、じんじゃ(jinja)、しろ(shiro)、とう(tou)、はし(hashi)、えき(eki)、みせ(mise)、がっこう(gakkou)、こうえん(kouen)、へい(hei)、さっかー(sakka-)
 
 ### 5.5 食べ物
-ごはん(gohan)、みそしる(misoshiru)、さかな(sakana)、たまご(tamago)、やさい(yasai)、くだもの(kudamono)、りんご(ringo)、みかん(mikan)、すいか(suika)、もも(momo)、ぶどう(budou)、いちご(ichigo)、なし(nashi)、かき(kaki)、さくらんぼ(sakuranbo)、ぎゅうにゅう(gyuunyuu)、うどん(udon)、そば(soba)、すし(sushi)、みそ(miso)、しょうゆ(shouyu)、さとう(satou)、しお(shio)、えび(ebi)
+ごはん(gohan)、みそしる(misoshiru)、さかな(sakana)、たまご(tamago)、やさい(yasai)、くだもの(kudamono)、りんご(ringo)、みかん(mikan)、すいか(suika)、もも(momo)、ぶどう(budou)、いちご(ichigo)、なし(nashi)、かき(kaki)、さくらんぼ(sakuranbo)、ぎゅうにゅう(gyuunyuu)、うどん(udon)、そば(soba)、すし(sushi)、みそ(miso)、しょうゆ(shouyu)、さとう(satou)、しお(shio)、えび(ebi)、けーき(ke-ki)
 
 ### 5.6 動物
 いぬ(inu)、ねこ(neko)、うま(uma)、うし(ushi)、ぶた(buta)、ひつじ(hitsuji)、やぎ(yagi)、うさぎ(usagi)、ねずみ(nezumi)、とり(tori)、からす(karasu)、すずめ(suzume)、かも(kamo)、つる(tsuru)、かめ(kame)、かえる(kaeru)、へび(hebi)、とかげ(tokage)、ちょう(chou)、あり(ari)、はち(hachi)、くも(kumo)、せみ(semi)、かぶとむし(kabutomushi)、くわがた(kuwagata)、ほたる(hotaru)、ざりがに(zarigani)、ことり(kotori)
 
 ### 5.7 のりもの・踏切
-でんしゃ(densha)、ふみきり(fumikiri)、しんごう(shingou)、せんろ(senro)、きしゃ(kisha)、れっしゃ(ressha)、とっきゅう(tokkyuu)、しんかんせん(shinkansen)、ちかてつ(chikatetsu)、ふね(fune)、ひこうき(hikouki)、じてんしゃ(jitensha)、くるま(kuruma)、しょうぼうしゃ(shoubousha)、きゅうきゅうしゃ(kyuukyuusha)、せんすいかん(sensuikan)、ききゅう(kikyuu)、そり(sori)
+でんしゃ(densha)、ふみきり(fumikiri)、しんごう(shingou)、せんろ(senro)、きしゃ(kisha)、れっしゃ(ressha)、とっきゅう(tokkyuu)、しんかんせん(shinkansen)、ちかてつ(chikatetsu)、ふね(fune)、ひこうき(hikouki)、じてんしゃ(jitensha)、くるま(kuruma)、しょうぼうしゃ(shoubousha)、きゅうきゅうしゃ(kyuukyuusha)、せんすいかん(sensuikan)、ききゅう(kikyuu)、そり(sori)、ろけっと(roketto)
 
 ## 6. 進捗データ（端末内のみ）
 

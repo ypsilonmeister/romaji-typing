@@ -550,7 +550,8 @@ export function LessonScreen({
         </div>
         {hintActive && currentGuideKey && !wordCompleted && (
           <div className="hint-badge" role="status" data-testid="hint-indicator">
-            つぎの キー: <kbd>{currentGuideKey.toUpperCase()}</kbd>
+            つぎの キー:{' '}
+            <kbd>{currentGuideKey === '-' ? 'ー (-)' : currentGuideKey.toUpperCase()}</kbd>
           </div>
         )}
       </section>
