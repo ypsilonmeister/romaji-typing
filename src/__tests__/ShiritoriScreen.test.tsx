@@ -372,4 +372,127 @@ describe('ShiritoriScreen', () => {
     fireEvent.keyDown(window, { key: 's' });
     expect(screen.getByTestId('shiritori-buffer').textContent).toBe('S');
   });
+
+  it('拡張辞書を遅延読み込みし、読み込み完了前も従来辞書で遊べ、完了後は「りんご」の後に「ごま」が打てる', async () => {
+    let resolveFetch!: (res: Response) => void;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    render(
+      <ShiritoriScreen
+        dictionary={['ほし', 'しり', 'りんご', 'まど']}
+        random={() => 0}
+        appResponseDelayMs={50}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    // 入場時に shiritori-dict.json を fetch している
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/shiritori-dict\.json$/),
+      expect.any(Object),
+    );
+
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).soundOn).toBe(true);
+    });
+
+    // 読み込み完了前でも従来辞書で遊べる: アプリ「ほし」→ 子ども「しり」→ アプリ「りんご」
+    typeWord('shiri');
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain('しり');
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+        'りんご',
+      );
+    });
+
+    // 拡張辞書の読み込み完了（「ごま」が使えるようになる）
+    await act(async () => {
+      resolveFetch(new Response(JSON.stringify(['ごま', 'まくら']), { status: 200 }));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('expected-kana').textContent).toBe('ご');
+    });
+
+    // 「りんご」の後に拡張辞書の「ごま」が受理される
+    typeWord('goma');
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain('ごま');
+    expect(screen.queryByTestId('shiritori-feedback')).toBeNull();
+
+    // アプリの答えは従来辞書（「まど」）を拡張辞書（「まくら」）より優先する
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+        'まど',
+      );
+    });
+  });
+
+  it('拡張辞書の読み込みに失敗してもエラーを出さず従来辞書だけで遊べる', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('offline'));
+
+    render(
+      <ShiritoriScreen
+        dictionary={['ほし', 'しま', 'まど', 'どんぐり']}
+        random={() => 0}
+        appResponseDelayMs={50}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).soundOn).toBe(true);
+    });
+
+    expect(screen.queryByTestId('shiritori-feedback')).toBeNull();
+    expect(screen.getByTestId('expected-kana').textContent).toBe('し');
+
+    typeWord('shima');
+    fireEvent.keyDown(window, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+        'まど',
+      );
+    });
+    expect(screen.queryByTestId('shiritori-feedback')).toBeNull();
+  });
+
+  it('従来辞書に候補が無い場合のみ、アプリは拡張辞書の4文字以下の語から返す', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(['ごりらたち', 'ごま', 'まりも']), { status: 200 }),
+    );
+
+    render(
+      <ShiritoriScreen
+        dictionary={['ほし', 'しりんご', 'まり']}
+        random={() => 0}
+        appResponseDelayMs={50}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).soundOn).toBe(true);
+    });
+
+    // アプリ「ほし」→ 子ども「しりんご」（次「ご」は従来辞書に無い）
+    typeWord('shiringo');
+    fireEvent.keyDown(window, { key: 'Enter' });
+
+    // アプリは5文字の「ごりらたち」を避け、4文字以下の「ごま」を返す
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: 'ことばの つながり' }).textContent).toContain(
+        'ごま',
+      );
+    });
+    expect(screen.getByTestId('expected-kana').textContent).toBe('ま');
+  });
 });
