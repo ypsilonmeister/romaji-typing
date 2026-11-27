@@ -71,12 +71,15 @@ describe('VirtualKeyboard', () => {
     { name: '1366x768 レッスン画面（設計下限・フル）', availW: 907, availH: 355 },
     { name: '1366x650 レッスン画面（設計下限・実効高）', availW: 907, availH: 287 },
     { name: '1366x650 しりとり画面（設計下限・実効高）', availW: 1000, availH: 274 },
+    { name: '1366x500 レッスン画面（低高ウィンドウ）', availW: 907, availH: 217 },
+    { name: '1366x500 しりとり画面（低高ウィンドウ）', availW: 1000, availH: 207 },
     { name: '1024x600 レッスン画面', availW: 674, availH: 266 },
     { name: '1024x600 しりとり画面', availW: 978, availH: 252 },
     { name: '1920x1080 レッスン画面', availW: 1288, availH: 520 },
     { name: '1920x1080 しりとり画面', availW: 1000, availH: 500 },
     { name: '768x1024 縦長（<=820px 縦積み）', availW: 720, availH: 430 },
     { name: '480x800 小型縦長', availW: 440, availH: 336 },
+    { name: '320x568 極狭幅縦長（<=820px 縦積み）', availW: 270, availH: 238 },
     { name: '900x1200 縦長デスクトップ', availW: 585, availH: 580 },
     { name: '1920x600 横長・低高', availW: 1288, availH: 240 },
   ])('$name で全キーが正方形（特殊キーは規定比）を保ち枠内に収まる', ({ availW, availH }) => {
@@ -148,5 +151,14 @@ describe('VirtualKeyboard', () => {
     );
     expect(stylesCss).toMatch(/\.kb-key\s*\{[^}]*block-size:\s*var\(--key-size\);/s);
     expect(stylesCss).toMatch(/\.kb-key\s*\{[^}]*aspect-ratio:\s*var\(--key-span,\s*1\)\s*\/\s*1;/s);
+
+    // 狭幅レッスン画面で自動最小幅によるグリッド列の横はみ出しを防ぐ（minmax(0, 1fr)）
+    expect(stylesCss).toMatch(
+      /@media\s*\(max-width:\s*820px\)[\s\S]*?\.lesson\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s,
+    );
+
+    // 低いウィンドウ（例: 1366x500）でも 100dvh 内に収まるよう固定の min-block-size を持たない
+    expect(stylesCss).not.toMatch(/\.lesson\s*\{[^}]*min-block-size:\s*35rem;/s);
+    expect(stylesCss).not.toMatch(/\.shiritori\s*\{[^}]*min-block-size:\s*35rem;/s);
   });
 });
