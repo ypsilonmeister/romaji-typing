@@ -1,16 +1,22 @@
 // @vitest-environment node
 // DOM に依存しないしりとりゲームロジックの単体テスト。
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   advanceAppTurn,
   appCandidateWords,
   createShiritoriGame,
+  MAX_APP_EXTRA_WORD_LENGTH,
+  mergeShiritoriDictionarySet,
   normalizeNextKana,
   pickAppWord,
   SHIRITORI_DICTIONARY,
   SHIRITORI_DICTIONARY_SET,
   submitChildWord,
 } from '../shiritori';
+import {
+  loadExtendedShiritoriDictionary,
+  resolveShiritoriDictUrl,
+} from '../shiritoriDict';
 import { THEME_PACKS } from '../../data/wordPacks';
 import { STAGES } from '../../lesson/stages';
 
@@ -216,5 +222,116 @@ describe('子どもの手番の検証（submitChildWord）', () => {
     expect(start.expectedKana).toBe('や');
     const res = submitChildWord(start, 'やま', dictSet);
     expect(res.accepted).toBe(true);
+  });
+});
+
+describe('拡張辞書（Issue #19）', () => {
+  it('拡張辞書の語が子どもの答えとして受理される（例: 「りんご」の後に「ごま」）', () => {
+    const baseDict = ['りんご', 'まり'];
+    const extraDict = ['ごま'];
+    const mergedSet = mergeShiritoriDictionarySet(baseDict, extraDict);
+
+    const start = createShiritoriGame(baseDict, () => 0, extraDict);
+    expect(start.chain[0].word).toBe('りんご');
+    expect(start.expectedKana).toBe('ご');
+    expect(start.status).toBe('playing');
+
+    const res = submitChildWord(start, 'ごま', mergedSet);
+    expect(res.accepted).toBe(true);
+    if (res.accepted) {
+      expect(res.word).toBe('ごま');
+      expect(res.state.expectedKana).toBe('ま');
+    }
+  });
+
+  it('アプリの答えはパック・ステージ単語を優先し、候補がある間は拡張辞書を使わない', () => {
+    const baseDict = ['ほし', 'しま', 'まど'];
+    const extraDict = ['しろ', 'しか', 'しお'];
+
+    const picked = pickAppWord('し', new Set(['ほし']), baseDict, () => 0, extraDict);
+    expect(picked).toBe('しま');
+  });
+
+  it('従来辞書に候補が無い場合のみ、拡張辞書の4文字以下の語から選ぶ（5文字以上・ん終わりは除外）', () => {
+    expect(MAX_APP_EXTRA_WORD_LENGTH).toBe(4);
+    const baseDict = ['りんご', 'まり'];
+    const extraDict = ['ごりらたち', 'ごうこん', 'ごま', 'ごま油あぶら'];
+
+    const picked = pickAppWord('ご', new Set(['りんご']), baseDict, () => 0, extraDict);
+    expect(picked).toBe('ごま');
+
+    // 拡張辞書に5文字以上しか無い場合は選べず app-stuck になる
+    const start = createShiritoriGame(['りんご'], () => 0, ['ごりらたち']);
+    const result = advanceAppTurn(start, ['りんご'], () => 0, ['ごりらたち']);
+    expect(result.moved).toBe(false);
+    expect(result.state.status).toBe('app-stuck');
+  });
+
+  it('拡張辞書からのフォールバック時も、子どもが返せる語を優先し、返せなければ child-stuck にする', () => {
+    const baseDict = ['りんご', 'まり'];
+    // 「ごじ」（次「じ」は返せない）と「ごま」（次「ま」は baseDict の「まり」で返せる）
+    const extraDict = ['ごじ', 'ごま'];
+    const start = createShiritoriGame(baseDict, () => 0, extraDict);
+
+    const app = advanceAppTurn(start, baseDict, () => 0, extraDict);
+    expect(app.moved).toBe(true);
+    if (app.moved) {
+      expect(app.word).toBe('ごま');
+    }
+    expect(app.state.status).toBe('playing');
+
+    // 返せる語がどこにも無い場合は child-stuck
+    const stuckStart = createShiritoriGame(['りんご'], () => 0, ['ごじ']);
+    const stuckApp = advanceAppTurn(stuckStart, ['りんご'], () => 0, ['ごじ']);
+    expect(stuckApp.moved).toBe(true);
+    if (stuckApp.moved) {
+      expect(stuckApp.word).toBe('ごじ');
+    }
+    expect(stuckApp.state.status).toBe('child-stuck');
+  });
+
+  it('resolveShiritoriDictUrl は baseUrl に合わせてパスを解決する', () => {
+    expect(resolveShiritoriDictUrl('/')).toBe('/shiritori-dict.json');
+    expect(resolveShiritoriDictUrl('/romaji-typing/')).toBe('/romaji-typing/shiritori-dict.json');
+    expect(resolveShiritoriDictUrl('/romaji-typing')).toBe('/romaji-typing/shiritori-dict.json');
+  });
+
+  it('loadExtendedShiritoriDictionary は正常時に文字列配列を返し、失敗時は空配列へフォールバックする', async () => {
+    const okFetch = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify(['ごま', 'まくら']), { status: 200 }),
+    );
+    await expect(
+      loadExtendedShiritoriDictionary({ baseUrl: '/romaji-typing/', fetchImpl: okFetch }),
+    ).resolves.toEqual(['ごま', 'まくら']);
+    expect(okFetch).toHaveBeenCalledWith(
+      '/romaji-typing/shiritori-dict.json',
+      expect.objectContaining({ signal: undefined }),
+    );
+
+    const httpErrorFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('Not Found', { status: 404 }));
+    await expect(
+      loadExtendedShiritoriDictionary({ fetchImpl: httpErrorFetch }),
+    ).resolves.toEqual([]);
+
+    const networkErrorFetch = vi
+      .fn<typeof fetch>()
+      .mockRejectedValue(new Error('network error'));
+    await expect(
+      loadExtendedShiritoriDictionary({ fetchImpl: networkErrorFetch }),
+    ).resolves.toEqual([]);
+
+    const badJsonFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response('not-json', { status: 200 }));
+    await expect(loadExtendedShiritoriDictionary({ fetchImpl: badJsonFetch })).resolves.toEqual([]);
+
+    const nonArrayFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ words: ['ごま'] }), { status: 200 }));
+    await expect(loadExtendedShiritoriDictionary({ fetchImpl: nonArrayFetch })).resolves.toEqual(
+      [],
+    );
   });
 });

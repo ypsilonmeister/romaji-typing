@@ -19,12 +19,15 @@ import {
 } from '../core/romajiConverter';
 import {
   advanceAppTurn,
+  appCandidateWords,
   createShiritoriGame,
+  mergeShiritoriDictionarySet,
   SHIRITORI_DICTIONARY,
   submitChildWord,
   type RejectReason,
   type ShiritoriState,
 } from '../core/shiritori';
+import { loadExtendedShiritoriDictionary } from '../core/shiritoriDict';
 import { DEFAULT_SETTINGS, progressStore, type ProgressStore } from '../progress';
 
 const DEFAULT_APP_RESPONSE_DELAY_MS = 650;
@@ -77,7 +80,14 @@ export function ShiritoriScreen({
   store = progressStore,
   voice = voicePlayer,
 }: ShiritoriScreenProps) {
-  const dictionarySet = useMemo(() => new Set(dictionary), [dictionary]);
+  const [extraDictionary, setExtraDictionary] = useState<readonly string[]>([]);
+  const extraDictionaryRef = useRef<readonly string[]>(extraDictionary);
+  extraDictionaryRef.current = extraDictionary;
+
+  const dictionarySet = useMemo(
+    () => mergeShiritoriDictionarySet(dictionary, extraDictionary),
+    [dictionary, extraDictionary],
+  );
 
   const [game, setGame] = useState<ShiritoriState>(() => createShiritoriGame(dictionary, random));
   const [converter, setConverter] = useState<ConverterState>(() => createConverter());
@@ -103,6 +113,29 @@ export function ShiritoriScreen({
   const voiceOnRef = useRef(false);
   const initialVoicePlayedRef = useRef(false);
   const initialWordRef = useRef(game.chain[0]?.word ?? '');
+
+  // しりとりモード入場時に拡張辞書を遅延読み込みする（失敗時は従来辞書だけで動かす）。
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    void loadExtendedShiritoriDictionary({ signal: controller.signal }).then((words) => {
+      if (cancelled || words.length === 0) return;
+      setExtraDictionary(words);
+    });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
+  // 拡張辞書の読み込み完了で返せる言葉が増えた場合、child-stuck から復帰できるようにする。
+  useEffect(() => {
+    if (extraDictionary.length === 0 || phase !== 'child-stuck') return;
+    if (appCandidateWords(game.expectedKana, game.usedWords, extraDictionary).length > 0) {
+      setGame((prev) => (prev.status === 'child-stuck' ? { ...prev, status: 'playing' } : prev));
+      setPhase('child-turn');
+    }
+  }, [extraDictionary, game.expectedKana, game.usedWords, phase]);
 
   // 保存済みの音・音声設定を読み込み、音声 ON なら最初の言葉を登録済み音声で読み上げる。
   useEffect(() => {
@@ -242,7 +275,12 @@ export function ShiritoriScreen({
     setPhase('app-thinking');
     window.clearTimeout(appTurnTimerRef.current);
     appTurnTimerRef.current = window.setTimeout(() => {
-      const appResult = advanceAppTurn(result.state, dictionary, random);
+      const appResult = advanceAppTurn(
+        result.state,
+        dictionary,
+        random,
+        extraDictionaryRef.current,
+      );
       setGame(appResult.state);
       if (appResult.moved) {
         setPhase(appResult.state.status === 'child-stuck' ? 'child-stuck' : 'child-turn');
