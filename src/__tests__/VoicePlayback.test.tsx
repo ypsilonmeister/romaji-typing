@@ -4,7 +4,13 @@ import { IDBFactory } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import * as sound from '../audio/sound';
-import { createVoicePlayer, type AudioLike } from '../audio/voice';
+import {
+  createVoicePlayer,
+  type AudioLike,
+  type SpeechSynthesisLike,
+  type SpeechSynthesisVoiceLike,
+  type SpeechUtteranceLike,
+} from '../audio/voice';
 import type { VoiceManifest } from '../audio/voiceManifest';
 import { DEFAULT_SETTINGS, progressStore, type Settings } from '../progress';
 import { EndScreen } from '../screens/EndScreen';
@@ -470,5 +476,185 @@ describe('保護者設定の音声 ON / OFF（Issue #13）', () => {
     fireEvent.click(goodBtn);
 
     expect(audios).toHaveLength(0);
+  });
+});
+
+class MockUtterance implements SpeechUtteranceLike {
+  text: string;
+  lang = '';
+  rate = 1;
+  voice: SpeechSynthesisVoiceLike | null = null;
+  onend: ((event?: unknown) => void) | null = null;
+  onerror: ((event?: unknown) => void) | null = null;
+
+  constructor(text: string) {
+    this.text = text;
+  }
+
+  finish(): void {
+    this.onend?.();
+  }
+}
+
+class MockSpeechSynthesis implements SpeechSynthesisLike {
+  spoken: MockUtterance[] = [];
+  cancelCount = 0;
+  private readonly voices: SpeechSynthesisVoiceLike[];
+
+  constructor(voices: SpeechSynthesisVoiceLike[] = [{ lang: 'ja-JP', name: 'Kyoko' }]) {
+    this.voices = voices;
+  }
+
+  speak(utterance: SpeechUtteranceLike): void {
+    this.spoken.push(utterance as MockUtterance);
+  }
+
+  cancel(): void {
+    this.cancelCount++;
+  }
+
+  getVoices(): readonly SpeechSynthesisVoiceLike[] {
+    return this.voices;
+  }
+}
+
+describe('ブラウザ読み上げフォールバックと保護者設定（Issue #23）', () => {
+  it('録音あり単語は録音優先、録音なし単語は speechSynthesis でキュー経由で読み上げる', async () => {
+    const audios: MockAudio[] = [];
+    const synth = new MockSpeechSynthesis();
+    const player = createVoicePlayer({
+      manifest: TEST_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new MockAudio(url);
+        audios.push(audio);
+        return audio;
+      },
+      speechSynthesis: synth,
+      createUtterance: (text) => new MockUtterance(text),
+    });
+
+    render(
+      <LessonScreen
+        mode="stage"
+        words={['あさ', 'かさ']}
+        wordTransitionMs={50}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    // lesson-start を再生完了させる
+    await waitFor(() => {
+      expect(audios.map((a) => a.src)).toEqual(['/audio/phrases/lesson-start.mp3']);
+    });
+    audios[0].finish();
+
+    vi.useFakeTimers();
+
+    // 1問目「あさ」（録音あり）: 録音が再生され speechSynthesis は呼ばれない
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS);
+    });
+    expect(audios.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+    ]);
+    expect(synth.spoken).toHaveLength(0);
+
+    // 録音「あさ」をまだ再生中のまま2問目「かさ」（録音なし）を完了する
+    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS);
+    });
+    // 録音再生中なのでブラウザ読み上げは割り込まない
+    expect(synth.spoken).toHaveLength(0);
+
+    // 録音「あさ」が終わるとキューから「かさ」のブラウザ読み上げが始まる
+    audios[1].finish();
+    expect(synth.spoken.map((u) => u.text)).toEqual(['かさ']);
+    expect(synth.spoken[0].lang).toBe('ja-JP');
+    expect(synth.spoken[0].rate).toBe(0.9);
+    // 読み上げ中なので lesson-clear はまだ始まらない
+    expect(audios).toHaveLength(2);
+
+    // ブラウザ読み上げが終わると lesson-clear が再生される
+    synth.spoken[0].finish();
+    expect(audios.map((a) => a.src)).toEqual([
+      '/audio/phrases/lesson-start.mp3',
+      '/audio/words/asa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+  });
+
+  it('保護者設定の音声 OFF では録音なし単語でも speechSynthesis が呼ばれない', async () => {
+    await progressStore.updateSettings({ voiceOn: false });
+    const audios: MockAudio[] = [];
+    const synth = new MockSpeechSynthesis();
+    const player = createVoicePlayer({
+      manifest: TEST_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new MockAudio(url);
+        audios.push(audio);
+        return audio;
+      },
+      speechSynthesis: synth,
+      createUtterance: (text) => new MockUtterance(text),
+    });
+
+    render(
+      <LessonScreen
+        mode="stage"
+        words={['かさ']}
+        wordTransitionMs={50}
+        voice={player}
+        onFinish={vi.fn()}
+      />,
+    );
+
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).voiceOn).toBe(false);
+    });
+
+    vi.useFakeTimers();
+
+    fireEvent.keyDown(window, { key: 'k' });
+    fireEvent.keyDown(window, { key: 'a' });
+    fireEvent.keyDown(window, { key: 's' });
+    fireEvent.keyDown(window, { key: 'a' });
+    act(() => {
+      vi.advanceTimersByTime(sound.WORD_COMPLETE_SOUND_DURATION_MS + 100);
+    });
+
+    expect(audios).toHaveLength(0);
+    expect(synth.spoken).toHaveLength(0);
+  });
+
+  it('保護者設定で音声を OFF に切り替えると再生中のブラウザ読み上げも止まる', async () => {
+    const synth = new MockSpeechSynthesis();
+    const player = createVoicePlayer({
+      manifest: TEST_MANIFEST,
+      speechSynthesis: synth,
+      createUtterance: (text) => new MockUtterance(text),
+    });
+
+    player.playWord('そら');
+    expect(synth.spoken).toHaveLength(1);
+
+    render(<ParentGateScreen onBack={vi.fn()} voice={player} />);
+    const checkbox = screen.getByRole('checkbox', { name: /音声/ }) as HTMLInputElement;
+    fireEvent.click(checkbox);
+
+    expect(synth.cancelCount).toBe(1);
+    await waitFor(async () => {
+      expect((await progressStore.getSettings()).voiceOn).toBe(false);
+    });
   });
 });

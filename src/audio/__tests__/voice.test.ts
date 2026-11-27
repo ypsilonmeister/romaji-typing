@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createVoicePlayer, type AudioLike } from '../voice';
+import {
+  createVoicePlayer,
+  DEFAULT_TTS_LANG,
+  DEFAULT_TTS_RATE,
+  selectJapaneseVoice,
+  type AudioLike,
+  type SpeechSynthesisLike,
+  type SpeechSynthesisVoiceLike,
+  type SpeechUtteranceLike,
+} from '../voice';
 import {
   DEFAULT_VOICE_MANIFEST,
   resolveVoiceUrl,
@@ -560,6 +569,271 @@ describe('createVoicePlayer', () => {
       '/audio/phrases/lesson-clear.mp3',
       '/audio/phrases/session-end.mp3',
       '/audio/phrases/self-report-good.mp3',
+    ]);
+  });
+});
+
+class FakeUtterance implements SpeechUtteranceLike {
+  text: string;
+  lang = '';
+  rate = 1;
+  voice: SpeechSynthesisVoiceLike | null = null;
+  onend: ((event?: unknown) => void) | null = null;
+  onerror: ((event?: unknown) => void) | null = null;
+
+  constructor(text: string) {
+    this.text = text;
+  }
+
+  finish(): void {
+    this.onend?.();
+  }
+
+  fail(): void {
+    this.onerror?.();
+  }
+}
+
+class FakeSpeechSynthesis implements SpeechSynthesisLike {
+  spoken: FakeUtterance[] = [];
+  cancelCount = 0;
+  voices: SpeechSynthesisVoiceLike[];
+  private readonly voicesChangedListeners = new Set<() => void>();
+  private readonly speakImpl?: (utterance: SpeechUtteranceLike) => void;
+
+  constructor(
+    voices: SpeechSynthesisVoiceLike[] = [],
+    speakImpl?: (utterance: SpeechUtteranceLike) => void,
+  ) {
+    this.voices = voices;
+    this.speakImpl = speakImpl;
+  }
+
+  speak(utterance: SpeechUtteranceLike): void {
+    this.spoken.push(utterance as FakeUtterance);
+    this.speakImpl?.(utterance);
+  }
+
+  cancel(): void {
+    this.cancelCount++;
+  }
+
+  getVoices(): readonly SpeechSynthesisVoiceLike[] {
+    return this.voices;
+  }
+
+  addEventListener(type: 'voiceschanged', listener: () => void): void {
+    if (type === 'voiceschanged') {
+      this.voicesChangedListeners.add(listener);
+    }
+  }
+
+  removeEventListener(type: 'voiceschanged', listener: () => void): void {
+    if (type === 'voiceschanged') {
+      this.voicesChangedListeners.delete(listener);
+    }
+  }
+
+  emitVoicesChanged(nextVoices: SpeechSynthesisVoiceLike[]): void {
+    this.voices = nextVoices;
+    for (const listener of [...this.voicesChangedListeners]) {
+      listener();
+    }
+  }
+}
+
+describe('selectJapaneseVoice', () => {
+  it('ja-JP の声を優先して選び、無ければ ja 系、それも無ければ null を返す', () => {
+    const enVoice: SpeechSynthesisVoiceLike = { lang: 'en-US', name: 'English' };
+    const jaGeneric: SpeechSynthesisVoiceLike = { lang: 'ja', name: 'Japanese' };
+    const jaJp: SpeechSynthesisVoiceLike = { lang: 'ja-JP', name: 'Kyoko' };
+    const jaJpDefault: SpeechSynthesisVoiceLike = { lang: 'ja_JP', name: 'Otoya', default: true };
+
+    expect(selectJapaneseVoice([enVoice, jaGeneric, jaJp])).toBe(jaJp);
+    expect(selectJapaneseVoice([enVoice, jaJp, jaJpDefault])).toBe(jaJpDefault);
+    expect(selectJapaneseVoice([enVoice, jaGeneric])).toBe(jaGeneric);
+    expect(selectJapaneseVoice([enVoice])).toBeNull();
+  });
+});
+
+describe('speechSynthesis フォールバック（Issue #23）', () => {
+  it('録音が無い言葉では speechSynthesis が呼ばれ、録音がある言葉では呼ばれない', () => {
+    const createdAudios: FakeAudio[] = [];
+    const jaVoice: SpeechSynthesisVoiceLike = { lang: 'ja-JP', name: 'Kyoko' };
+    const synth = new FakeSpeechSynthesis([{ lang: 'en-US', name: 'Alex' }, jaVoice]);
+
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        createdAudios.push(audio);
+        return audio;
+      },
+      speechSynthesis: synth,
+      createUtterance: (text) => new FakeUtterance(text),
+    });
+
+    // 録音がある言葉は録音を優先し、speechSynthesis は呼ばれない
+    expect(player.playWord('あさ')).toBe(true);
+    expect(createdAudios.map((a) => a.src)).toEqual(['/audio/words/asa.mp3']);
+    expect(synth.spoken).toHaveLength(0);
+    createdAudios[0].emit('ended');
+
+    // 録音が無い言葉は speechSynthesis で ja-JP / rate 0.9 で読み上げる
+    expect(player.playWord('そら')).toBe(true);
+    expect(createdAudios).toHaveLength(1);
+    expect(synth.spoken).toHaveLength(1);
+    expect(synth.spoken[0].text).toBe('そら');
+    expect(synth.spoken[0].lang).toBe(DEFAULT_TTS_LANG);
+    expect(synth.spoken[0].rate).toBe(DEFAULT_TTS_RATE);
+    expect(synth.spoken[0].voice).toBe(jaVoice);
+
+    // 未登録の固定文キーは speechSynthesis にフォールバックしない
+    synth.spoken[0].finish();
+    expect(player.playPhrase('self-report-skip')).toBe(false);
+    expect(synth.spoken).toHaveLength(1);
+  });
+
+  it('getVoices() が初回空でも voiceschanged 発火後に ja-JP の声を選択できる', () => {
+    const synth = new FakeSpeechSynthesis([]);
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      speechSynthesis: synth,
+      createUtterance: (text) => new FakeUtterance(text),
+    });
+
+    // voiceschanged 前は voice=null だが lang="ja-JP" で読み上げる
+    expect(player.playWord('そら')).toBe(true);
+    expect(synth.spoken).toHaveLength(1);
+    expect(synth.spoken[0].lang).toBe('ja-JP');
+    expect(synth.spoken[0].voice).toBeNull();
+    synth.spoken[0].finish();
+
+    // 非同期に voiceschanged が届いた後は ja-JP の声が選ばれる
+    const jaVoice: SpeechSynthesisVoiceLike = { lang: 'ja-JP', name: 'Google 日本語' };
+    synth.emitVoicesChanged([{ lang: 'en-US', name: 'Google US English' }, jaVoice]);
+
+    expect(player.playWord('くも')).toBe(true);
+    expect(synth.spoken).toHaveLength(2);
+    expect(synth.spoken[1].voice).toBe(jaVoice);
+    expect(synth.spoken[1].rate).toBe(0.9);
+  });
+
+  it('録音とブラウザ読み上げが同じキューに載り、再生中に割り込まず順番に再生される', () => {
+    const createdAudios: FakeAudio[] = [];
+    const synth = new FakeSpeechSynthesis([{ lang: 'ja-JP', name: 'Kyoko' }]);
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        createdAudios.push(audio);
+        return audio;
+      },
+      speechSynthesis: synth,
+      createUtterance: (text) => new FakeUtterance(text),
+    });
+
+    // 録音再生中に録音なし単語 → さらに録音あり単語 → 完了フレーズを連続要求
+    expect(player.playWord('あさ')).toBe(true);
+    expect(player.playWord('そら')).toBe(true);
+    expect(player.playWord('かさ')).toBe(true);
+    expect(player.playPhrase('lesson-clear')).toBe(true);
+
+    // 録音「あさ」再生中は speechSynthesis が割り込まない
+    expect(createdAudios.map((a) => a.src)).toEqual(['/audio/words/asa.mp3']);
+    expect(synth.spoken).toHaveLength(0);
+    expect(player.isPlaying()).toBe(true);
+
+    // 録音「あさ」が終わるとブラウザ読み上げ「そら」が始まる
+    createdAudios[0].emit('ended');
+    expect(synth.spoken.map((u) => u.text)).toEqual(['そら']);
+    expect(createdAudios).toHaveLength(1);
+    expect(player.isPlaying()).toBe(true);
+
+    // ブラウザ読み上げ「そら」が終わると録音「かさ」が始まる
+    synth.spoken[0].finish();
+    expect(createdAudios.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/words/kasa.mp3',
+    ]);
+    expect(player.isPlaying()).toBe(true);
+
+    // 録音「かさ」が終わると固定文 lesson-clear が始まる
+    createdAudios[1].emit('ended');
+    expect(createdAudios.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/words/kasa.mp3',
+      '/audio/phrases/lesson-clear.mp3',
+    ]);
+    createdAudios[2].emit('ended');
+    expect(player.isPlaying()).toBe(false);
+  });
+
+  it('stop() でブラウザ読み上げを cancel し、待機キューも破棄する', () => {
+    const createdAudios: FakeAudio[] = [];
+    const synth = new FakeSpeechSynthesis([{ lang: 'ja-JP', name: 'Kyoko' }]);
+    const player = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        createdAudios.push(audio);
+        return audio;
+      },
+      speechSynthesis: synth,
+      createUtterance: (text) => new FakeUtterance(text),
+    });
+
+    player.playWord('そら');
+    player.playWord('あさ');
+    expect(player.isPlaying()).toBe(true);
+
+    player.stop();
+    expect(synth.cancelCount).toBe(1);
+    expect(player.isPlaying()).toBe(false);
+
+    // stop 後に onend が発火しても待機していた「あさ」は鳴らない
+    synth.spoken[0].finish();
+    expect(createdAudios).toHaveLength(0);
+  });
+
+  it('speechSynthesis が使えない環境や speak() 失敗時でもエラーにせず素通り・次へ進める', () => {
+    // 1. speechSynthesis が未定義の環境
+    const playerWithoutSynth = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      speechSynthesis: null,
+    });
+    expect(playerWithoutSynth.playWord('そら')).toBe(false);
+
+    // 2. speak() が例外を投げても後続の録音キューへ進める
+    const createdAudios: FakeAudio[] = [];
+    const throwingSynth = new FakeSpeechSynthesis([], () => {
+      throw new Error('synthesis unavailable');
+    });
+    const playerWithError = createVoicePlayer({
+      manifest: SAMPLE_MANIFEST,
+      baseUrl: '/',
+      createAudio: (url) => {
+        const audio = new FakeAudio(url);
+        createdAudios.push(audio);
+        return audio;
+      },
+      speechSynthesis: throwingSynth,
+      createUtterance: (text) => new FakeUtterance(text),
+    });
+
+    // 先行録音終了後に throwingSynth が失敗しても、次の録音へ進む
+    playerWithError.playWord('あさ');
+    playerWithError.playWord('そら');
+    playerWithError.playWord('かさ');
+    createdAudios[0].emit('ended');
+
+    expect(throwingSynth.spoken.map((u) => u.text)).toEqual(['そら']);
+    expect(createdAudios.map((a) => a.src)).toEqual([
+      '/audio/words/asa.mp3',
+      '/audio/words/kasa.mp3',
     ]);
   });
 });
