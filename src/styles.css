@@ -663,6 +663,7 @@ button:focus-visible {
 }
 
 .keyboard-panel {
+  min-inline-size: 0;
   min-block-size: 0;
   display: flex;
   flex-direction: column;
@@ -673,58 +674,89 @@ button:focus-visible {
   border: 2px solid #d7e0e6;
 }
 
-.kb-rows {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(0.3rem, 0.9dvh, 0.5rem);
+/*
+ * 利用可能な幅・高さの両方をコンテナクエリ単位（cqi / cqb）で測り、
+ * キーの正方形（1:1）と画面内への収まりを両立させる。
+ */
+.kb-stage {
+  container-type: size;
+  container-name: keyboard;
+  flex: 1 1 0;
   inline-size: 100%;
   block-size: 100%;
-  justify-content: center;
-}
-
-.kb-row {
-  display: flex;
-  gap: clamp(0.25rem, 0.5vw, 0.45rem);
-  inline-size: 100%;
-  flex: 1 1 0;
-  min-block-size: 0;
-}
-
-.kb-row-1 {
-  padding-inline-start: 2.2%;
-}
-
-.kb-row-2 {
-  padding-inline-start: 5.5%;
-  padding-inline-end: 2.5%;
-}
-
-.kb-row-3 {
-  justify-content: center;
-  padding-inline: 22%;
-}
-
-.kb-key {
-  position: relative;
-  flex: 1 1 0;
   min-inline-size: 0;
   min-block-size: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 3px solid var(--key-finger, var(--line));
-  border-radius: 0.55rem;
+}
+
+.kb-rows {
+  /* コンテナクエリ単位非対応ブラウザ向けフォールバック */
+  --key-size: min(
+    calc(64dvw / var(--kb-width-units, 14.9)),
+    calc(44dvh / var(--kb-height-units, 4.4)),
+    4.75rem
+  );
+  --key-gap: calc(var(--key-size) * var(--kb-gap-ratio, 0.1));
+  --kb-content-width: calc(var(--key-size) * var(--kb-content-width-units, 14.7));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--key-gap);
+  inline-size: var(--kb-content-width);
+  max-inline-size: 100%;
+}
+
+@supports (width: 1cqi) and (height: 1cqb) {
+  .kb-rows {
+    --key-size: min(
+      calc(100cqi / var(--kb-width-units, 14.9)),
+      calc(100cqb / var(--kb-height-units, 4.4)),
+      4.75rem
+    );
+  }
+}
+
+.kb-row {
+  display: flex;
+  align-items: center;
+  gap: var(--key-gap);
+  inline-size: 100%;
+  flex: 0 0 auto;
+  padding-inline-start: calc(var(--key-size) * var(--kb-row-stagger, 0));
+}
+
+.kb-row-3 {
+  justify-content: center;
+}
+
+.kb-key {
+  position: relative;
+  flex: 0 0 auto;
+  inline-size: calc(var(--key-size) * var(--key-span, 1));
+  block-size: var(--key-size);
+  aspect-ratio: var(--key-span, 1) / 1;
+  min-inline-size: 0;
+  min-block-size: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: clamp(2px, calc(var(--key-size) * 0.055), 3px) solid var(--key-finger, var(--line));
+  border-radius: clamp(0.3rem, calc(var(--key-size) * 0.14), 0.6rem);
   background: var(--key-finger-bg, var(--surface));
   color: var(--text);
-  font-size: clamp(0.95rem, 2.3dvh, 1.45rem);
+  font-size: clamp(0.7rem, calc(var(--key-size) * 0.42), 1.6rem);
   font-weight: 700;
+  line-height: 1;
   padding: 0;
   box-shadow: 0 2px 0 rgba(36, 50, 61, 0.14);
   transition: background-color 0.12s ease, color 0.12s ease, transform 0.08s ease;
 }
 
 .kb-key-special {
-  font-size: clamp(0.8rem, 1.8dvh, 1.05rem);
+  font-size: clamp(0.6rem, calc(var(--key-size) * 0.3), 1.15rem);
 }
 
 .kb-key-home {
@@ -735,7 +767,7 @@ button:focus-visible {
 
 .kb-key-bump {
   position: absolute;
-  inset-block-end: 5px;
+  inset-block-end: clamp(3px, calc(var(--key-size) * 0.08), 6px);
   inline-size: 32%;
   block-size: 3px;
   border-radius: 999px;
@@ -1149,5 +1181,34 @@ button:focus-visible {
   .shiritori-prompt-row {
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  .shiritori-keyboard .keyboard-panel {
+    block-size: auto;
+  }
+
+  /* 縦積み時はパネル高さが auto になるため、container-type: size での高さ0潰れを防ぐ */
+  .kb-stage {
+    container-type: inline-size;
+    flex: 0 0 auto;
+    block-size: auto;
+  }
+
+  .kb-rows {
+    --key-size: min(
+      calc(92dvw / var(--kb-width-units, 14.9)),
+      calc(42dvh / var(--kb-height-units, 4.4)),
+      4.75rem
+    );
+  }
+
+  @supports (width: 1cqi) {
+    .kb-rows {
+      --key-size: min(
+        calc(100cqi / var(--kb-width-units, 14.9)),
+        calc(42dvh / var(--kb-height-units, 4.4)),
+        4.75rem
+      );
+    }
   }
 }
